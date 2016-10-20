@@ -1,5 +1,6 @@
 apply plugin: 'android-sdk-manager'
 apply plugin: 'com.android.library'
+apply plugin: 'com.github.dcendents.android-maven'
 apply plugin: 'checkstyle'
 apply plugin: 'maven'
 apply plugin: 'signing'
@@ -22,11 +23,13 @@ ext {
 }
 
 dependencies {
+
     compile "com.android.support:support-annotations:${supportLibVersion}"
     compile "com.android.support:support-v4:${supportLibVersion}"
     compile "com.android.support:design:${supportLibVersion}"
     compile 'com.squareup.okhttp3:okhttp:3.4.1'
-    
+
+
     // Exclude Guava to avoid an unnecessary transitive dependency
     // See: https://github.com/mapbox/mapbox-gl-native/issues/7129
     compile ('com.mapzen.android:lost:1.1.1') {
@@ -145,12 +148,12 @@ def isReleaseBuild() {
 
 def getReleaseRepositoryUrl() {
     return hasProperty('RELEASE_REPOSITORY_URL') ? RELEASE_REPOSITORY_URL :
-            "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
+            "file://Users/kjetilandersen/.m2/repository/"
 }
 
 def getSnapshotRepositoryUrl() {
     return hasProperty('SNAPSHOT_REPOSITORY_URL') ? SNAPSHOT_REPOSITORY_URL :
-            "https://oss.sonatype.org/content/repositories/snapshots/"
+            "file://Users/kjetilandersen/.m2/repository"
 }
 
 def getRepositoryUsername() {
@@ -196,14 +199,9 @@ afterEvaluate { project ->
                 pom.artifactId = POM_ARTIFACT_ID
                 pom.version = VERSION_NAME
 
-                repository(url: getReleaseRepositoryUrl()) {
-                    authentication(userName: getRepositoryUsername(),
-                            password: getRepositoryPassword())
-                }
-                snapshotRepository(url: getSnapshotRepositoryUrl()) {
-                    authentication(userName: getRepositoryUsername(),
-                            password: getRepositoryPassword())
-                }
+
+                repository(url: getReleaseRepositoryUrl())
+                snapshotRepository(url: getSnapshotRepositoryUrl())
 
 /*
                 // Leaving out as artifact was incorrectly named when found

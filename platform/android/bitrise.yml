@@ -208,6 +208,8 @@ workflows:
         - content: |-
             #!/bin/bash
             echo "Compile libmapbox-gl.so for all supportd abi's:"
+            echo "AWS_ACCESS_KEY_ID_DEVICE_FARM=$AWS_ACCESS_KEY_ID_DEVICE_FARM" >> platform/android/MapboxGLAndroidSDKTestApp/gradle.properties
+            echo "AWS_SECRET_ACCESS_KEY_DEVICE_FARM=$AWS_SECRET_ACCESS_KEY_DEVICE_FARM" >> platform/android/MapboxGLAndroidSDKTestApp/gradle.properties
             export BUILDTYPE=Release
             make apackage
     - script:
