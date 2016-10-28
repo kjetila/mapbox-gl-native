@@ -5,6 +5,7 @@
 #include <mbgl/style/types.hpp>
 #include <mbgl/style/layout_property.hpp>
 #include <mbgl/style/paint_property.hpp>
+#include <mbgl/programs/attributes.hpp>
 
 namespace mbgl {
 namespace style {
@@ -53,7 +54,7 @@ struct IconImage : LayoutProperty<std::string> {
     static std::string defaultValue() { return ""; }
 };
 
-struct IconRotate : LayoutProperty<float> {
+struct IconRotate : DataDrivenLayoutProperty<float> {
     static float defaultValue() { return 0; }
 };
 
@@ -65,7 +66,7 @@ struct IconKeepUpright : LayoutProperty<bool> {
     static bool defaultValue() { return false; }
 };
 
-struct IconOffset : LayoutProperty<std::array<float, 2>> {
+struct IconOffset : DataDrivenLayoutProperty<std::array<float, 2>> {
     static std::array<float, 2> defaultValue() { return {{ 0, 0 }}; }
 };
 

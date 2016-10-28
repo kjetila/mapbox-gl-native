@@ -25,7 +25,9 @@ bool FillLayer::Impl::evaluate(const PropertyEvaluationParameters& parameters) {
         passes |= RenderPass::Translucent;
     }
 
-    if (!paint.evaluated.get<FillPattern>().from.empty() || (paint.evaluated.get<FillColor>().a * paint.evaluated.get<FillOpacity>()) < 1.0f) {
+    if (!paint.unevaluated.get<FillPattern>().isUndefined()
+      || paint.evaluated.get<FillColor>().constantOr(Color()).a < 1.0f
+      || paint.evaluated.get<FillOpacity>().constantOr(0) < 1.0f) {
         passes |= RenderPass::Translucent;
     } else {
         passes |= RenderPass::Opaque;
@@ -35,12 +37,12 @@ bool FillLayer::Impl::evaluate(const PropertyEvaluationParameters& parameters) {
 }
 
 std::unique_ptr<Bucket> FillLayer::Impl::createBucket(BucketParameters& parameters) const {
-    auto bucket = std::make_unique<FillBucket>();
+    auto bucket = std::make_unique<FillBucket>(paint.evaluated, parameters.tileID.overscaledZ);
 
     auto& name = bucketName();
     parameters.eachFilteredFeature(filter, [&] (const auto& feature, std::size_t index, const std::string& layerName) {
         auto geometries = feature.getGeometries();
-        bucket->addGeometry(geometries);
+        bucket->addFeature(feature, geometries);
         parameters.featureIndex.insert(geometries, index, layerName, name);
     });
 
