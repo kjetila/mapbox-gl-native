@@ -27,6 +27,16 @@ typedef NS_ENUM(NSUInteger, MGLFillTranslateAnchor) {
  instantiate a new fill layer to add to a map style or you may query an 
  `MGLMapView` for its `style` and obtain existing layers using the 
  `-[MGLStyle layerWithIdentifier:]` method. 
+
+ ### Example ###
+
+ ```swift
+ let layer = MGLFillStyleLayer(identifier: "parks", source: parks)
+ layer.sourceLayerIdentifier = "parks"
+ layer.fillColor = MGLStyleValue(rawValue: UIColor.green)
+ layer.predicate = NSPredicate(format: "type == %@", "national-park")
+ mapView.style().add(layer)
+ ```
  */
 @interface MGLFillStyleLayer : MGLVectorStyleLayer
 
