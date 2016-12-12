@@ -1,0 +1,3 @@
+repository='external project URL'
+module='https://github.com/mapbox/mapbox-gl-shaders/archive/597115.zip'
+tag=''
