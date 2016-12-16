@@ -51,6 +51,7 @@ FOUNDATION_EXPORT const unsigned char MapboxVersionString[];
 #import "MGLTypes.h"
 #import "MGLUserLocation.h"
 #import "MGLUserLocationAnnotationView.h"
+#import "NSCoder+MGLAdditions.h"
 #import "NSValue+MGLAdditions.h"
 #import "NSValue+MGLStyleEnumAttributeAdditions.h"
 #import "MGLStyleValue.h"

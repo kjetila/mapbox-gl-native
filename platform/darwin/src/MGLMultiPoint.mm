@@ -1,7 +1,7 @@
 #import "MGLMultiPoint_Private.h"
 #import "MGLGeometry_Private.h"
 #import "MGLShape_Private.h"
-#import "NSCoder+MGLAdditions.h"
+#import "NSCoder+MGLAdditions_Private.h"
 #import "MGLTypes.h"
 
 @implementation MGLMultiPoint
@@ -54,7 +54,7 @@
 {
     NSUInteger hash = [super hash];
     for (auto coord : _coordinates) {
-        hash += coord.latitude+coord.longitude;
+        hash += @(coord.latitude+coord.longitude).hash;
     }
     return hash;
 }

@@ -1,6 +1,7 @@
 #import "MGLPointAnnotation.h"
 
 #import "MGLShape_Private.h"
+#import "NSCoder+MGLAdditions.h"
 
 #import <mbgl/util/geometry.hpp>
 
@@ -17,8 +18,7 @@
 - (instancetype)initWithCoder:(NSCoder *)coder
 {
     if (self = [super initWithCoder:coder]) {
-        self.coordinate = CLLocationCoordinate2DMake([coder decodeDoubleForKey:@"coordinateLatitude"],
-                                                     [coder decodeDoubleForKey:@"coordinateLongitude"]);
+        self.coordinate = [coder decodeMGLCoordinateForKey:@"coordinate"];
     }
     return self;
 }
@@ -26,8 +26,7 @@
 - (void)encodeWithCoder:(NSCoder *)coder
 {
     [super encodeWithCoder:coder];
-    [coder encodeDouble:coordinate.latitude forKey:@"coordinateLatitude"];
-    [coder encodeDouble:coordinate.longitude forKey:@"coordinateLongitude"];
+    [coder encodeMGLCoordinate:coordinate forKey:@"coordinate"];
 }
 
 - (BOOL)isEqual:(id)other
