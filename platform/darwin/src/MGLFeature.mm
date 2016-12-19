@@ -26,32 +26,9 @@
 @synthesize identifier;
 @synthesize attributes;
 
-- (instancetype)initWithCoder:(NSCoder *)decoder {
-    if ([super initWithCoder:decoder]) {
-        NSSet<Class> *identifierClasses = [NSSet setWithArray:@[[NSString class], [NSNumber class]]];
-        identifier = [decoder decodeObjectOfClasses:identifierClasses forKey:@"identifier"];
-        attributes = [decoder decodeObjectOfClass:[NSDictionary class] forKey:@"attributes"];
-    }
-    return self;
-}
-
-- (void)encodeWithCoder:(NSCoder *)coder {
-    [super encodeWithCoder:coder];
-    [coder encodeObject:identifier forKey:@"identifier"];
-    [coder encodeObject:attributes forKey:@"attributes"];
-}
-
-- (BOOL)isEqual:(id)other {
-    if (other == self) return YES;
-    if (![other isKindOfClass:[MGLPointFeature class]]) return NO;
-    
-    MGLPointFeature *otherPointFeature = other;
-    return [super isEqual:other] && [self geoJSONObject] == [otherPointFeature geoJSONObject];
-}
-
-- (NSUInteger)hash {
-    return [super hash] + [[self geoJSONDictionary] hash];
-}
+MGLFeatureInitCoding();
+MGLFeatureEncode();
+MGLFeatureIsEqual(MGLPointFeature);
 
 - (id)attributeForKey:(NSString *)key {
     return self.attributes[key];
@@ -75,32 +52,9 @@
 @synthesize identifier;
 @synthesize attributes;
 
-- (instancetype)initWithCoder:(NSCoder *)decoder {
-    if (self = [super initWithCoder:decoder]) {
-        NSSet<Class> *identifierClasses = [NSSet setWithArray:@[[NSString class], [NSNumber class]]];
-        identifier = [decoder decodeObjectOfClasses:identifierClasses forKey:@"identifier"];
-        attributes = [decoder decodeObjectOfClass:[NSDictionary class] forKey:@"attributes"];
-    }
-    return self;
-}
-
-- (void)encodeWithCoder:(NSCoder *)coder {
-    [super encodeWithCoder:coder];
-    [coder encodeObject:identifier forKey:@"identifier"];
-    [coder encodeObject:attributes forKey:@"attributes"];
-}
-
-- (BOOL)isEqual:(id)other {
-    if (other == self) return YES;
-    if (![other isKindOfClass:[MGLPolylineFeature class]]) return NO;
-    
-    MGLPolylineFeature *otherPointFeature = other;
-    return [super isEqual:other] && [self geoJSONObject] == [otherPointFeature geoJSONObject];
-}
-
-- (NSUInteger)hash {
-    return [super hash] + [[self geoJSONDictionary] hash];
-}
+MGLFeatureInitCoding();
+MGLFeatureEncode();
+MGLFeatureIsEqual(MGLPolylineFeature);
 
 - (id)attributeForKey:(NSString *)key {
     return self.attributes[key];
@@ -124,32 +78,9 @@
 @synthesize identifier;
 @synthesize attributes;
 
-- (instancetype)initWithCoder:(NSCoder *)decoder {
-    if (self = [super initWithCoder:decoder]) {
-        NSSet<Class> *identifierClasses = [NSSet setWithArray:@[[NSString class], [NSNumber class]]];
-        identifier = [decoder decodeObjectOfClasses:identifierClasses forKey:@"identifier"];
-        attributes = [decoder decodeObjectOfClass:[NSDictionary class] forKey:@"attributes"];
-    }
-    return self;
-}
-
-- (void)encodeWithCoder:(NSCoder *)coder {
-    [super encodeWithCoder:coder];
-    [coder encodeObject:identifier forKey:@"identifier"];
-    [coder encodeObject:attributes forKey:@"attributes"];
-}
-
-- (BOOL)isEqual:(id)other {
-    if (other == self) return YES;
-    if (![other isKindOfClass:[MGLPolygonFeature class]]) return NO;
-    
-    MGLPolygonFeature *otherPolygonFeature = other;
-    return [super isEqual:other] && [self geoJSONObject] == [otherPolygonFeature geoJSONObject];
-}
-
-- (NSUInteger)hash {
-    return [super hash] + [[self geoJSONDictionary] hash];
-}
+MGLFeatureInitCoding();
+MGLFeatureEncode();
+MGLFeatureIsEqual(MGLPolygonFeature);
 
 - (id)attributeForKey:(NSString *)key {
     return self.attributes[key];
@@ -173,32 +104,9 @@
 @synthesize identifier;
 @synthesize attributes;
 
-- (instancetype)initWithCoder:(NSCoder *)decoder {
-    if (self = [super initWithCoder:decoder]) {
-        NSSet<Class> *identifierClasses = [NSSet setWithArray:@[[NSString class], [NSNumber class]]];
-        identifier = [decoder decodeObjectOfClasses:identifierClasses forKey:@"identifier"];
-        attributes = [decoder decodeObjectOfClass:[NSDictionary class] forKey:@"attributes"];
-    }
-    return self;
-}
-
-- (void)encodeWithCoder:(NSCoder *)coder {
-    [super encodeWithCoder:coder];
-    [coder encodeObject:identifier forKey:@"identifier"];
-    [coder encodeObject:attributes forKey:@"attributes"];
-}
-
-- (BOOL)isEqual:(id)other {
-    if (other == self) return YES;
-    if (![other isKindOfClass:[MGLPointCollectionFeature class]]) return NO;
-    
-    MGLPointCollectionFeature *otherPointFeature = other;
-    return [super isEqual:other] && [self geoJSONObject] == [otherPointFeature geoJSONObject];
-}
-
-- (NSUInteger)hash {
-    return [super hash] + [[self geoJSONDictionary] hash];
-}
+MGLFeatureInitCoding();
+MGLFeatureEncode();
+MGLFeatureIsEqual(MGLPointCollectionFeature);
 
 - (id)attributeForKey:(NSString *)key {
     return self.attributes[key];
@@ -222,32 +130,9 @@
 @synthesize identifier;
 @synthesize attributes;
 
-- (instancetype)initWithCoder:(NSCoder *)decoder {
-    if (self = [super initWithCoder:decoder]) {
-        NSSet<Class> *identifierClasses = [NSSet setWithArray:@[[NSString class], [NSNumber class]]];
-        identifier = [decoder decodeObjectOfClasses:identifierClasses forKey:@"identifier"];
-        attributes = [decoder decodeObjectOfClass:[NSDictionary class] forKey:@"attributes"];
-    }
-    return self;
-}
-
-- (void)encodeWithCoder:(NSCoder *)coder {
-    [super encodeWithCoder:coder];
-    [coder encodeObject:identifier forKey:@"identifier"];
-    [coder encodeObject:attributes forKey:@"attributes"];
-}
-
-- (BOOL)isEqual:(id)other {
-    if (other == self) return YES;
-    if (![other isKindOfClass:[MGLMultiPolylineFeature class]]) return NO;
-    
-    MGLMultiPolylineFeature *otherMultiPolylineFeature = other;
-    return [super isEqual:other] && [self geoJSONObject] == [otherMultiPolylineFeature geoJSONObject];
-}
-
-- (NSUInteger)hash {
-    return [super hash] + [[self geoJSONDictionary] hash];
-}
+MGLFeatureInitCoding();
+MGLFeatureEncode();
+MGLFeatureIsEqual(MGLMultiPolylineFeature);
 
 - (id)attributeForKey:(NSString *)key {
     return self.attributes[key];
@@ -271,32 +156,9 @@
 @synthesize identifier;
 @synthesize attributes;
 
-- (instancetype)initWithCoder:(NSCoder *)decoder {
-    if (self = [super initWithCoder:decoder]) {
-        NSSet<Class> *identifierClasses = [NSSet setWithArray:@[[NSString class], [NSNumber class]]];
-        identifier = [decoder decodeObjectOfClasses:identifierClasses forKey:@"identifier"];
-        attributes = [decoder decodeObjectOfClass:[NSDictionary class] forKey:@"attributes"];
-    }
-    return self;
-}
-
-- (void)encodeWithCoder:(NSCoder *)coder {
-    [super encodeWithCoder:coder];
-    [coder encodeObject:identifier forKey:@"identifier"];
-    [coder encodeObject:attributes forKey:@"attributes"];
-}
-
-- (BOOL)isEqual:(id)other {
-    if (other == self) return YES;
-    if (![other isKindOfClass:[MGLMultiPolygonFeature class]]) return NO;
-    
-    MGLMultiPolygonFeature *otherMultiPolygonFeature = other;
-    return [super isEqual:other] && [self geoJSONObject] == [otherMultiPolygonFeature geoJSONObject];
-}
-
-- (NSUInteger)hash {
-    return [super hash] + [[self geoJSONDictionary] hash];
-}
+MGLFeatureInitCoding();
+MGLFeatureEncode();
+MGLFeatureIsEqual(MGLMultiPolygonFeature);
 
 - (id)attributeForKey:(NSString *)key {
     return self.attributes[key];
@@ -326,32 +188,9 @@
     return [super shapeCollectionWithShapes:shapes];
 }
 
-- (instancetype)initWithCoder:(NSCoder *)decoder {
-    if (self = [super initWithCoder:decoder]) {
-        NSSet<Class> *identifierClasses = [NSSet setWithArray:@[[NSString class], [NSNumber class]]];
-        identifier = [decoder decodeObjectOfClasses:identifierClasses forKey:@"identifier"];
-        attributes = [decoder decodeObjectOfClass:[NSDictionary class] forKey:@"attributes"];
-    }
-    return self;
-}
-
-- (void)encodeWithCoder:(NSCoder *)coder {
-    [super encodeWithCoder:coder];
-    [coder encodeObject:identifier forKey:@"identifier"];
-    [coder encodeObject:attributes forKey:@"attributes"];
-}
-
-- (BOOL)isEqual:(id)other {
-    if (other == self) return YES;
-    if (![other isKindOfClass:[MGLShapeCollectionFeature class]]) return NO;
-    
-    MGLShapeCollectionFeature *otherShapeCollectionFeature = other;
-    return [super isEqual:other] && [self geoJSONObject] == [otherShapeCollectionFeature geoJSONObject];
-}
-
-- (NSUInteger)hash {
-    return [super hash] + [[self geoJSONDictionary] hash];
-}
+MGLFeatureInitCoding();
+MGLFeatureEncode();
+MGLFeatureIsEqual(MGLShapeCollectionFeature);
 
 - (id)attributeForKey:(NSString *)key {
     return self.attributes[key];
