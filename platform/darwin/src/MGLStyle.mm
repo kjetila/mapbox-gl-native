@@ -226,18 +226,18 @@ static NSURL *MGLStyleURL_emerald;
 {
     auto layers = self.mapView.mbglMap->getLayers();
     NSMutableArray *styleLayers = [NSMutableArray arrayWithCapacity:layers.size()];
-    for (auto layer = layers.rbegin(); layer != layers.rend(); ++layer) {
-        MGLStyleLayer *styleLayer = [self layerFromMBGLLayer:*layer];
+    for (auto layer : layers) {
+        MGLStyleLayer *styleLayer = [self layerFromMBGLLayer:layer];
         [styleLayers addObject:styleLayer];
     }
     return styleLayers;
 }
 
 - (void)setLayers:(NS_MUTABLE_ARRAY_OF(MGLStyleLayer *) *)layers {
-    for (MGLStyleLayer *layer in self.layers.reverseObjectEnumerator) {
+    for (MGLStyleLayer *layer in self.layers) {
         [self removeLayer:layer];
     }
-    for (MGLStyleLayer *layer in layers.reverseObjectEnumerator) {
+    for (MGLStyleLayer *layer in layers) {
         [self addLayer:layer];
     }
 }
@@ -255,7 +255,7 @@ static NSURL *MGLStyleURL_emerald;
                     format:@"No style layer at index %lu.", (unsigned long)index];
         return nil;
     }
-    auto layer = layers.at(layers.size() - 1 - index);
+    auto layer = layers.at(index);
     return [self layerFromMBGLLayer:layer];
 }
 
@@ -293,7 +293,7 @@ static NSURL *MGLStyleURL_emerald;
         }
     } else {
         try {
-            MGLStyleLayer *sibling = [self layerFromMBGLLayer:layers.at(layers.size() - index)];
+            MGLStyleLayer *sibling = [self layerFromMBGLLayer:layers.at(index)];
             [styleLayer addToMapView:self.mapView belowLayer:sibling];
         } catch (std::runtime_error & err) {
             [NSException raise:@"MGLRedundantLayerIdentifierException" format:@"%s", err.what()];
@@ -308,7 +308,7 @@ static NSURL *MGLStyleURL_emerald;
         [NSException raise:NSRangeException
                     format:@"Cannot remove style layer at out-of-bounds index %lu.", (unsigned long)index];
     }
-    auto layer = layers.at(layers.size() - 1 - index);
+    auto layer = layers.at(index);
     MGLStyleLayer *styleLayer = [self layerFromMBGLLayer:layer];
     [styleLayer removeFromMapView:self.mapView];
 }
