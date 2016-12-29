@@ -89,6 +89,12 @@ public class OfflineManager {
         void onError(String error);
     }
 
+    public interface CreateOfflineArchiveCallback {
+        void onCreate();
+
+        void onError(String error);
+    }
+
     /*
      * Constructors
      */
@@ -307,10 +313,24 @@ public class OfflineManager {
         setOfflineMapboxTileCountLimit(mDefaultFileSourcePtr, limit);
     }
 
+    public void putTileWithUrlTemplate(String url, float pixelRatio,
+                                       int x, int y, int z, byte[] metadata, Handler.Callback callback
+                                       ) {
+
+    }
+
+    public void putResourceWithUrl(String url, byte[] metadata, Handler.Callback callback) {
+        putResourceWithUrl(mDefaultFileSourcePtr, url, metadata);
+
+    }
+
 
     /*
      * Native methods
      */
+
+
+    private native void putResourceWithUrl(long defaultFileSourcePtr, String url, byte[] data);
 
     private native long createDefaultFileSource(
             String cachePath, String assetRoot, long maximumCacheSize);

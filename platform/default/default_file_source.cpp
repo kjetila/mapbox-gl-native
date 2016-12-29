@@ -38,6 +38,7 @@ public:
         return onlineFileSource.getAPIBaseURL();
     }
 
+
     void setAccessToken(const std::string& accessToken) {
         onlineFileSource.setAccessToken(accessToken);
     }

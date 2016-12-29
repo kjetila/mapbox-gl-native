@@ -255,7 +255,17 @@ jni::jarray<jlong>* std_vector_uint_to_jobject(JNIEnv *env, const std::vector<ui
 
     return &jarray;
 }
+/*
+static std::shared_ptr<const std::string> response_data_from_java(JNIEnv* env, jni::jarray<jbyte>& j) {
+   std::size_t length = jni::GetArrayLength(*env, j);
+   std::shared_ptr<const std::string> ptr;
+}
 
+static jni::jarray<jbyte>* response_data_from_native(JNIEnv* env, std::shared_ptr<const std::string>& p) {
+   std::size_t length = static_cast<std::size_t>(c.size());
+   jni::jarray<jbyte>& j = jni::NewArray<jbyte>(*env, length);
+}
+*/
 static std::vector<uint8_t> metadata_from_java(JNIEnv* env, jni::jarray<jbyte>& j) {
     std::size_t length = jni::GetArrayLength(*env, j);
     std::vector<uint8_t> c;
@@ -1319,7 +1329,24 @@ void listOfflineRegions(JNIEnv *env, jni::jobject* obj, jlong defaultFileSourceP
         detach_jni_thread(theJVM, &env2, renderDetach);
     });
 }
+void putResourceWithUrl(JNIEnv *env, jni::jobject* obj,jlong defaultFileSourcePtr, jni::jstring* url_, jni::jarray<jbyte>* data){
+   std::string url = std_string_from_jstring(env, url_);
+   mbgl::Resource resource = mbgl::Resource(mbgl::Resource::Kind::Unknown, url);
+   mbgl::Response response = mbgl::Response();
+   mbgl::DefaultFileSource *defaultFileSource = reinterpret_cast<mbgl::DefaultFileSource *>(defaultFileSourcePtr);
+   defaultFileSource->startPut(resource, response, NULL);
+} 
 
+/*
+void putTileWithUrlTemplate(JNIEnv *env, jni::jobject obj, jlong defaultFileSourcePtr, jni::jstring* urlTemplate_, jfloat pixelRatio, jint x, jint y, jint z, jni::jarray<jbyte> data_) {
+   std::string urlTemplate = std_string_from_jstring(env, urlTemplate_);
+   mbgl::Resource resource = mbgl::Resource::tile(urlTemplate, pixelRatio, x, y, z, mbgl::Tileset::Scheme::XYZ);
+   mbgl::Response response = mbgl::Response();
+   //response.data = std::make_shared<std::string>(static_cast<const char*>(data_.bytes), data_.length); 
+   mbgl::DefaultFileSource *defaultFileSource = reinterpret_cast<mbgl::DefaultFileSource *>(defaultFileSourcePtr);
+   defaultFileSource->startPut(resource, response, NULL);
+}
+*/
 void createOfflineRegion(JNIEnv *env, jni::jobject* obj, jlong defaultFileSourcePtr, jni::jobject* definition_, jni::jarray<jbyte>* metadata_, jni::jobject* createCallback) {
     // Checks
     assert(defaultFileSourcePtr != 0);
@@ -1907,8 +1934,9 @@ extern "C" JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
 
     jni::RegisterNatives(env, offlineManagerClass,
         MAKE_NATIVE_METHOD(createDefaultFileSource, "(Ljava/lang/String;Ljava/lang/String;J)J"),
-        MAKE_NATIVE_METHOD(setAccessToken, "(JLjava/lang/String;)V"),
-        MAKE_NATIVE_METHOD(getAccessToken, "(J)Ljava/lang/String;"),
+	MAKE_NATIVE_METHOD(setAccessToken, "(JLjava/lang/String;)V"),
+	MAKE_NATIVE_METHOD(putResourceWithUrl, "(JLjava/lang/String;[B)V"),
+	MAKE_NATIVE_METHOD(getAccessToken, "(J)Ljava/lang/String;"),
         MAKE_NATIVE_METHOD(listOfflineRegions, "(JLcom/mapbox/mapboxsdk/offline/OfflineManager$ListOfflineRegionsCallback;)V"),
         MAKE_NATIVE_METHOD(createOfflineRegion, "(JLcom/mapbox/mapboxsdk/offline/OfflineRegionDefinition;[BLcom/mapbox/mapboxsdk/offline/OfflineManager$CreateOfflineRegionCallback;)V"),
         MAKE_NATIVE_METHOD(setOfflineMapboxTileCountLimit, "(JJ)V")
