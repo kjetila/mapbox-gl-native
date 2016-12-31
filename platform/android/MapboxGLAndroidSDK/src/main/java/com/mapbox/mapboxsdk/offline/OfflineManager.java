@@ -316,7 +316,7 @@ public class OfflineManager {
     public void putTileWithUrlTemplate(String url, float pixelRatio,
                                        int x, int y, int z, byte[] metadata, Handler.Callback callback
                                        ) {
-
+        putTileWithUrlTemplate(mDefaultFileSourcePtr, url, pixelRatio, x, y, z, metadata);
     }
 
     public void putResourceWithUrl(String url, byte[] metadata, Handler.Callback callback) {
@@ -329,6 +329,9 @@ public class OfflineManager {
      * Native methods
      */
 
+
+    private native void putTileWithUrlTemplate(long defaultFileSourcePtr, String url, float pixelRatio,
+                                               int x, int y, int z, byte[] data);
 
     private native void putResourceWithUrl(long defaultFileSourcePtr, String url, byte[] data);
 

@@ -1337,8 +1337,7 @@ void putResourceWithUrl(JNIEnv *env, jni::jobject* obj,jlong defaultFileSourcePt
    defaultFileSource->startPut(resource, response, NULL);
 } 
 
-/*
-void putTileWithUrlTemplate(JNIEnv *env, jni::jobject obj, jlong defaultFileSourcePtr, jni::jstring* urlTemplate_, jfloat pixelRatio, jint x, jint y, jint z, jni::jarray<jbyte> data_) {
+void putTileWithUrlTemplate(JNIEnv *env, jni::jobject* obj, jlong defaultFileSourcePtr, jni::jstring* urlTemplate_, jfloat pixelRatio, jint x, jint y, jint z, jni::jarray<jbyte>* data_) {
    std::string urlTemplate = std_string_from_jstring(env, urlTemplate_);
    mbgl::Resource resource = mbgl::Resource::tile(urlTemplate, pixelRatio, x, y, z, mbgl::Tileset::Scheme::XYZ);
    mbgl::Response response = mbgl::Response();
@@ -1346,7 +1345,7 @@ void putTileWithUrlTemplate(JNIEnv *env, jni::jobject obj, jlong defaultFileSour
    mbgl::DefaultFileSource *defaultFileSource = reinterpret_cast<mbgl::DefaultFileSource *>(defaultFileSourcePtr);
    defaultFileSource->startPut(resource, response, NULL);
 }
-*/
+
 void createOfflineRegion(JNIEnv *env, jni::jobject* obj, jlong defaultFileSourcePtr, jni::jobject* definition_, jni::jarray<jbyte>* metadata_, jni::jobject* createCallback) {
     // Checks
     assert(defaultFileSourcePtr != 0);
@@ -1936,6 +1935,7 @@ extern "C" JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
         MAKE_NATIVE_METHOD(createDefaultFileSource, "(Ljava/lang/String;Ljava/lang/String;J)J"),
 	MAKE_NATIVE_METHOD(setAccessToken, "(JLjava/lang/String;)V"),
 	MAKE_NATIVE_METHOD(putResourceWithUrl, "(JLjava/lang/String;[B)V"),
+	MAKE_NATIVE_METHOD(putTileWithUrlTemplate,"(JLjava/lang/String;fiii[B)V"),
 	MAKE_NATIVE_METHOD(getAccessToken, "(J)Ljava/lang/String;"),
         MAKE_NATIVE_METHOD(listOfflineRegions, "(JLcom/mapbox/mapboxsdk/offline/OfflineManager$ListOfflineRegionsCallback;)V"),
         MAKE_NATIVE_METHOD(createOfflineRegion, "(JLcom/mapbox/mapboxsdk/offline/OfflineRegionDefinition;[BLcom/mapbox/mapboxsdk/offline/OfflineManager$CreateOfflineRegionCallback;)V"),
