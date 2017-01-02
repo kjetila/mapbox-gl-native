@@ -1330,6 +1330,7 @@ void listOfflineRegions(JNIEnv *env, jni::jobject* obj, jlong defaultFileSourceP
     });
 }
 void putResourceWithUrl(JNIEnv *env, jni::jobject* obj,jlong defaultFileSourcePtr, jni::jstring* url_, jni::jarray<jbyte>* data){
+   assert(defaultFileSourcePtr != 0);
    std::string url = std_string_from_jstring(env, url_);
    mbgl::Resource resource = mbgl::Resource(mbgl::Resource::Kind::Unknown, url);
    mbgl::Response response = mbgl::Response();
@@ -1338,6 +1339,7 @@ void putResourceWithUrl(JNIEnv *env, jni::jobject* obj,jlong defaultFileSourcePt
 } 
 
 void putTileWithUrlTemplate(JNIEnv *env, jni::jobject* obj, jlong defaultFileSourcePtr, jni::jstring* urlTemplate_, jfloat pixelRatio, jint x, jint y, jint z, jni::jarray<jbyte>* data_) {
+   assert(defaultFileSourcePtr != 0);
    std::string urlTemplate = std_string_from_jstring(env, urlTemplate_);
    mbgl::Resource resource = mbgl::Resource::tile(urlTemplate, pixelRatio, x, y, z, mbgl::Tileset::Scheme::XYZ);
    mbgl::Response response = mbgl::Response();
