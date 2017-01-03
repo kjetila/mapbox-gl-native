@@ -137,6 +137,9 @@ jni::jfieldID* offlineRegionDefinitionPixelRatioId = nullptr;
 jni::jmethodID* createOnCreateMethodId = nullptr;
 jni::jmethodID* createOnErrorMethodId = nullptr;
 
+jni::jmethodID* createOnPutMethodId = nullptr;
+jni::jmethodID* createOnPutErrorMethodId = nullptr;
+
 jni::jmethodID* updateMetadataOnUpdateMethodId = nullptr;
 jni::jmethodID* updateMetadataOnErrorMethodId = nullptr;
 
@@ -1329,23 +1332,72 @@ void listOfflineRegions(JNIEnv *env, jni::jobject* obj, jlong defaultFileSourceP
         detach_jni_thread(theJVM, &env2, renderDetach);
     });
 }
-void putResourceWithUrl(JNIEnv *env, jni::jobject* obj,jlong defaultFileSourcePtr, jni::jstring* url_, jni::jarray<jbyte>* data){
+void putResourceWithUrl(JNIEnv *env, jni::jobject* obj,jlong defaultFileSourcePtr, jni::jstring* url_, jni::jarray<jbyte>* arr, jni::jobject* putCallback){
    assert(defaultFileSourcePtr != 0);
    std::string url = std_string_from_jstring(env, url_);
    mbgl::Resource resource = mbgl::Resource(mbgl::Resource::Kind::Unknown, url);
    mbgl::Response response = mbgl::Response();
+
+   std::size_t size = jni::GetArrayLength(*env, *arr);   
+	
+   response.data = std::make_shared<std::string>(reinterpret_cast<const char*>(arr) ,size);
+  // auto data = std::make_shared<std::string>(size, char());
+    //        jni::GetArrayRegion(env, *arr, 0, data->size(), reinterpret_cast<jbyte*>(&(*data)));
+ //           response.data = data;
    mbgl::DefaultFileSource *defaultFileSource = reinterpret_cast<mbgl::DefaultFileSource *>(defaultFileSourcePtr);
-   defaultFileSource->startPut(resource, response, NULL);
+   defaultFileSource->startPut(resource, response, [putCallback](std::exception_ptr error) mutable {
+
+        // Reattach, the callback comes from a different thread
+        JNIEnv *env2;
+        jboolean renderDetach = attach_jni_thread(theJVM, &env2, "Offline Thread");
+        if (renderDetach) {
+            mbgl::Log::Debug(mbgl::Event::JNI, "Attached.");
+        }
+
+        if (error) {
+            std::string message = mbgl::util::toString(error);
+            jni::CallMethod<void>(*env2, putCallback, *createOnPutMethodId, std_string_to_jstring(env2, message));
+        } else {
+            jni::CallMethod<void>(*env2, putCallback, *createOnPutErrorMethodId);
+        }
+
+        // Delete global refs and detach when we're done
+        jni::DeleteGlobalRef(*env2, jni::UniqueGlobalRef<jni::jobject>(putCallback));
+        detach_jni_thread(theJVM, &env2, renderDetach);
+    });
 } 
 
-void putTileWithUrlTemplate(JNIEnv *env, jni::jobject* obj, jlong defaultFileSourcePtr, jni::jstring* urlTemplate_, jfloat pixelRatio, jint x, jint y, jint z, jni::jarray<jbyte>* data_) {
+void putTileWithUrlTemplate(JNIEnv *env, jni::jobject* obj, jlong defaultFileSourcePtr, jni::jstring* urlTemplate_, jfloat pixelRatio, jint x, jint y, jint z, jni::jarray<jbyte>* data_, jni::jobject* putCallback) {
    assert(defaultFileSourcePtr != 0);
    std::string urlTemplate = std_string_from_jstring(env, urlTemplate_);
    mbgl::Resource resource = mbgl::Resource::tile(urlTemplate, pixelRatio, x, y, z, mbgl::Tileset::Scheme::XYZ);
    mbgl::Response response = mbgl::Response();
-   //response.data = std::make_shared<std::string>(static_cast<const char*>(data_.bytes), data_.length); 
+   std::size_t size = jni::GetArrayLength(*env, *data_);
+   auto buf = std::make_shared<std::string>(size, char());
+   //jni::GetArrayRegion(env, *data_, 0, buf->size(), reinterpret_cast<jbyte*>(&(*buf)[0]));
+   //response.data = buf;
+   response.data = std::make_shared<std::string>();
    mbgl::DefaultFileSource *defaultFileSource = reinterpret_cast<mbgl::DefaultFileSource *>(defaultFileSourcePtr);
-   defaultFileSource->startPut(resource, response, NULL);
+   defaultFileSource->startPut(resource, response, [putCallback](std::exception_ptr error) mutable {
+
+        // Reattach, the callback comes from a different thread
+        JNIEnv *env2;
+        jboolean renderDetach = attach_jni_thread(theJVM, &env2, "Offline Thread");
+        if (renderDetach) {
+            mbgl::Log::Debug(mbgl::Event::JNI, "Attached.");
+        }
+
+        if (error) {
+            std::string message = mbgl::util::toString(error);
+            jni::CallMethod<void>(*env2, putCallback, *createOnPutMethodId, std_string_to_jstring(env2, message));
+        } else {
+            jni::CallMethod<void>(*env2, putCallback, *createOnPutErrorMethodId);
+        }
+
+        // Delete global refs and detach when we're done
+        jni::DeleteGlobalRef(*env2, jni::UniqueGlobalRef<jni::jobject>(putCallback));
+        detach_jni_thread(theJVM, &env2, renderDetach);
+    });
 }
 
 void createOfflineRegion(JNIEnv *env, jni::jobject* obj, jlong defaultFileSourcePtr, jni::jobject* definition_, jni::jarray<jbyte>* metadata_, jni::jobject* createCallback) {
@@ -1924,6 +1976,10 @@ extern "C" JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
         struct CreateOfflineRegionsCallback {
             static constexpr auto Name() { return "com/mapbox/mapboxsdk/offline/OfflineManager$CreateOfflineRegionCallback"; }
         };
+
+	struct PutOfflineArchiveCallback {
+	    static constexpr auto Name() { return "com/mapbox/mapboxsdk/offline/OfflineManager$PutOfflineArchiveCallback"; }
+	};
     };
 
     struct OfflineRegion {
@@ -1936,8 +1992,8 @@ extern "C" JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
     jni::RegisterNatives(env, offlineManagerClass,
         MAKE_NATIVE_METHOD(createDefaultFileSource, "(Ljava/lang/String;Ljava/lang/String;J)J"),
 	MAKE_NATIVE_METHOD(setAccessToken, "(JLjava/lang/String;)V"),
-	MAKE_NATIVE_METHOD(putResourceWithUrl, "(JLjava/lang/String;[B)V"),
-	MAKE_NATIVE_METHOD(putTileWithUrlTemplate,"(JLjava/lang/String;FIII[B)V"),
+	MAKE_NATIVE_METHOD(putResourceWithUrl, "(JLjava/lang/String;[BLcom/mapbox/mapboxsdk/offline/OfflineManager$PutOfflineArchiveCallback;)V"),
+	MAKE_NATIVE_METHOD(putTileWithUrlTemplate,"(JLjava/lang/String;FIII[BLcom/mapbox/mapboxsdk/offline/OfflineManager$PutOfflineArchiveCallback;)V"),
 	MAKE_NATIVE_METHOD(getAccessToken, "(J)Ljava/lang/String;"),
         MAKE_NATIVE_METHOD(listOfflineRegions, "(JLcom/mapbox/mapboxsdk/offline/OfflineManager$ListOfflineRegionsCallback;)V"),
         MAKE_NATIVE_METHOD(createOfflineRegion, "(JLcom/mapbox/mapboxsdk/offline/OfflineRegionDefinition;[BLcom/mapbox/mapboxsdk/offline/OfflineManager$CreateOfflineRegionCallback;)V"),
@@ -1951,6 +2007,10 @@ extern "C" JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
     jni::Class<OfflineManager::CreateOfflineRegionsCallback> createOfflineRegionCallbackClass = jni::Class<OfflineManager::CreateOfflineRegionsCallback>::Find(env);
     createOnCreateMethodId = &jni::GetMethodID(env, createOfflineRegionCallbackClass, "onCreate", "(Lcom/mapbox/mapboxsdk/offline/OfflineRegion;)V");
     createOnErrorMethodId = &jni::GetMethodID(env, createOfflineRegionCallbackClass, "onError", "(Ljava/lang/String;)V");
+
+    jni::Class<OfflineManager::PutOfflineArchiveCallback> createPutOfflineArchiveCallbackClass = jni::Class<OfflineManager::PutOfflineArchiveCallback>::Find(env);
+    createOnPutMethodId = &jni::GetMethodID(env, createPutOfflineArchiveCallbackClass, "onPut", "(Ljava/lang/String;)V");
+    createOnPutErrorMethodId = &jni::GetMethodID(env, createPutOfflineArchiveCallbackClass, "onPutError", "(Ljava/lang/String;)V");
 
     offlineRegionClass = &jni::FindClass(env, OfflineRegion::Name());
     offlineRegionClass = jni::NewGlobalRef(env, offlineRegionClass).release();

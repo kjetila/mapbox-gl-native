@@ -89,10 +89,10 @@ public class OfflineManager {
         void onError(String error);
     }
 
-    public interface CreateOfflineArchiveCallback {
-        void onCreate();
+    public interface PutOfflineArchiveCallback {
+        void onPut(String put);
 
-        void onError(String error);
+        void onPutError(String error);
     }
 
     /*
@@ -314,13 +314,62 @@ public class OfflineManager {
     }
 
     public void putTileWithUrlTemplate(String url, float pixelRatio,
-                                       int x, int y, int z, byte[] metadata, Handler.Callback callback
+                                       int x, int y, int z, byte[] metadata, final PutOfflineArchiveCallback callback
                                        ) {
-        putTileWithUrlTemplate(mDefaultFileSourcePtr, url, pixelRatio, x, y, z, metadata);
+        System.out.println("Running put tile with url template");
+        putTileWithUrlTemplate(mDefaultFileSourcePtr, url, pixelRatio, x, y, z, metadata,
+                new PutOfflineArchiveCallback() {
+
+                    @Override
+                    public void onPut(final String put) {
+                        getHandler().post(new Runnable() {
+                            @Override
+                            public void run() {
+                                System.out.println("callback onput");
+                                callback.onPut(put);
+                            }
+                        });
+                    }
+
+                    @Override
+                    public void onPutError(final String error) {
+                        getHandler().post(new Runnable() {
+                            @Override
+                            public void run() {
+                                System.out.println("callback onerror");
+                                callback.onPutError(error);
+                            }
+                        });
+                    }
+                });
     }
 
-    public void putResourceWithUrl(String url, byte[] metadata, Handler.Callback callback) {
-        putResourceWithUrl(mDefaultFileSourcePtr, url, metadata);
+    public void putResourceWithUrl(String url, byte[] metadata, final PutOfflineArchiveCallback callback) {
+        System.out.println("Running put resource with url template");
+        putResourceWithUrl(mDefaultFileSourcePtr, url, metadata, new PutOfflineArchiveCallback() {
+
+            @Override
+            public void onPut(final String put) {
+                getHandler().post(new Runnable() {
+                    @Override
+                    public void run() {
+                        System.out.println("callback onput");
+                        callback.onPut(put);
+                    }
+                });
+            }
+
+            @Override
+            public void onPutError(final String error) {
+                getHandler().post(new Runnable() {
+                    @Override
+                    public void run() {
+                        System.out.println("callback onerror");
+                        callback.onPutError(error);
+                    }
+                });
+            }
+        });
 
     }
 
@@ -330,10 +379,7 @@ public class OfflineManager {
      */
 
 
-    private native void putTileWithUrlTemplate(long defaultFileSourcePtr, String url, float pixelRatio,
-                                               int x, int y, int z, byte[] data);
 
-    private native void putResourceWithUrl(long defaultFileSourcePtr, String url, byte[] data);
 
     private native long createDefaultFileSource(
             String cachePath, String assetRoot, long maximumCacheSize);
@@ -351,5 +397,10 @@ public class OfflineManager {
 
     private native void setOfflineMapboxTileCountLimit(
             long defaultFileSourcePtr, long limit);
+
+    private native void putTileWithUrlTemplate(long defaultFileSourcePtr, String url, float pixelRatio,
+                                               int x, int y, int z, byte[] data, PutOfflineArchiveCallback putOfflineArchiveCallback);
+
+    private native void putResourceWithUrl(long defaultFileSourcePtr, String url, byte[] data, PutOfflineArchiveCallback putOfflineArchiveCallback);
 
 }
