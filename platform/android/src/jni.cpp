@@ -1337,13 +1337,10 @@ void putResourceWithUrl(JNIEnv *env, jni::jobject* obj,jlong defaultFileSourcePt
    std::string url = std_string_from_jstring(env, url_);
    mbgl::Resource resource = mbgl::Resource(mbgl::Resource::Kind::Unknown, url);
    mbgl::Response response = mbgl::Response();
-
    std::size_t size = jni::GetArrayLength(*env, *arr);   
-	
-   response.data = std::make_shared<std::string>(reinterpret_cast<const char*>(arr) ,size);
-  // auto data = std::make_shared<std::string>(size, char());
-    //        jni::GetArrayRegion(env, *arr, 0, data->size(), reinterpret_cast<jbyte*>(&(*data)));
- //           response.data = data;
+   auto data = std::make_shared<std::string>(size, char());
+   jni::GetArrayRegion(*env, *arr, 0, data->size(), reinterpret_cast<jbyte*>(&(*data)[0]));
+   response.data = data; 
    mbgl::DefaultFileSource *defaultFileSource = reinterpret_cast<mbgl::DefaultFileSource *>(defaultFileSourcePtr);
    defaultFileSource->startPut(resource, response, [putCallback](std::exception_ptr error) mutable {
 
@@ -1356,9 +1353,9 @@ void putResourceWithUrl(JNIEnv *env, jni::jobject* obj,jlong defaultFileSourcePt
 
         if (error) {
             std::string message = mbgl::util::toString(error);
-            jni::CallMethod<void>(*env2, putCallback, *createOnPutMethodId, std_string_to_jstring(env2, message));
+            jni::CallMethod<void>(*env2, putCallback, *createOnPutErrorMethodId, std_string_to_jstring(env2, message));
         } else {
-            jni::CallMethod<void>(*env2, putCallback, *createOnPutErrorMethodId);
+            jni::CallMethod<void>(*env2, putCallback, *createOnPutMethodId);
         }
 
         // Delete global refs and detach when we're done
@@ -1373,10 +1370,9 @@ void putTileWithUrlTemplate(JNIEnv *env, jni::jobject* obj, jlong defaultFileSou
    mbgl::Resource resource = mbgl::Resource::tile(urlTemplate, pixelRatio, x, y, z, mbgl::Tileset::Scheme::XYZ);
    mbgl::Response response = mbgl::Response();
    std::size_t size = jni::GetArrayLength(*env, *data_);
-   auto buf = std::make_shared<std::string>(size, char());
-   //jni::GetArrayRegion(env, *data_, 0, buf->size(), reinterpret_cast<jbyte*>(&(*buf)[0]));
-   //response.data = buf;
-   response.data = std::make_shared<std::string>();
+   auto data = std::make_shared<std::string>(size, char());
+   jni::GetArrayRegion(*env, *data_, 0, data->size(), reinterpret_cast<jbyte*>(&(*data)[0]));
+   response.data = data;   
    mbgl::DefaultFileSource *defaultFileSource = reinterpret_cast<mbgl::DefaultFileSource *>(defaultFileSourcePtr);
    defaultFileSource->startPut(resource, response, [putCallback](std::exception_ptr error) mutable {
 
@@ -1389,9 +1385,9 @@ void putTileWithUrlTemplate(JNIEnv *env, jni::jobject* obj, jlong defaultFileSou
 
         if (error) {
             std::string message = mbgl::util::toString(error);
-            jni::CallMethod<void>(*env2, putCallback, *createOnPutMethodId, std_string_to_jstring(env2, message));
+            jni::CallMethod<void>(*env2, putCallback, *createOnPutErrorMethodId, std_string_to_jstring(env2, message));
         } else {
-            jni::CallMethod<void>(*env2, putCallback, *createOnPutErrorMethodId);
+            jni::CallMethod<void>(*env2, putCallback, *createOnPutMethodId);
         }
 
         // Delete global refs and detach when we're done
@@ -2009,7 +2005,7 @@ extern "C" JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
     createOnErrorMethodId = &jni::GetMethodID(env, createOfflineRegionCallbackClass, "onError", "(Ljava/lang/String;)V");
 
     jni::Class<OfflineManager::PutOfflineArchiveCallback> createPutOfflineArchiveCallbackClass = jni::Class<OfflineManager::PutOfflineArchiveCallback>::Find(env);
-    createOnPutMethodId = &jni::GetMethodID(env, createPutOfflineArchiveCallbackClass, "onPut", "(Ljava/lang/String;)V");
+    createOnPutMethodId = &jni::GetMethodID(env, createPutOfflineArchiveCallbackClass, "onPut", "()V");
     createOnPutErrorMethodId = &jni::GetMethodID(env, createPutOfflineArchiveCallbackClass, "onPutError", "(Ljava/lang/String;)V");
 
     offlineRegionClass = &jni::FindClass(env, OfflineRegion::Name());

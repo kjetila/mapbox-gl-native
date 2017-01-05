@@ -82,6 +82,11 @@ android {
             consumerProguardFiles 'proguard-rules.pro'
         }
     }
+    externalNativeBuild {
+        cmake {
+            path '../../../CMakeLists.txt'
+        }
+    }
 }
 
 configurations {

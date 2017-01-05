@@ -90,7 +90,7 @@ public class OfflineManager {
     }
 
     public interface PutOfflineArchiveCallback {
-        void onPut(String put);
+        void onPut();
 
         void onPutError(String error);
     }
@@ -321,12 +321,12 @@ public class OfflineManager {
                 new PutOfflineArchiveCallback() {
 
                     @Override
-                    public void onPut(final String put) {
+                    public void onPut() {
                         getHandler().post(new Runnable() {
                             @Override
                             public void run() {
                                 System.out.println("callback onput");
-                                callback.onPut(put);
+                                callback.onPut();
                             }
                         });
                     }
@@ -349,12 +349,12 @@ public class OfflineManager {
         putResourceWithUrl(mDefaultFileSourcePtr, url, metadata, new PutOfflineArchiveCallback() {
 
             @Override
-            public void onPut(final String put) {
+            public void onPut() {
                 getHandler().post(new Runnable() {
                     @Override
                     public void run() {
                         System.out.println("callback onput");
-                        callback.onPut(put);
+                        callback.onPut();
                     }
                 });
             }

@@ -144,7 +144,7 @@ public:
     void startPut(const Resource& resource, const Response& response, std::function<void (std::exception_ptr)> callback) {
         try {
             offlineDatabase.put(resource, response);
-            callback({});
+           // callback({});
         } catch (...) {
             callback(std::current_exception());
         }
