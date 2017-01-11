@@ -316,7 +316,6 @@ public class OfflineManager {
     public void putTileWithUrlTemplate(String url, float pixelRatio,
                                        int x, int y, int z, byte[] metadata, final PutOfflineArchiveCallback callback
                                        ) {
-        System.out.println("Running put tile with url template");
         putTileWithUrlTemplate(mDefaultFileSourcePtr, url, pixelRatio, x, y, z, metadata,
                 new PutOfflineArchiveCallback() {
 
@@ -345,7 +344,6 @@ public class OfflineManager {
     }
 
     public void putResourceWithUrl(String url, byte[] metadata, final PutOfflineArchiveCallback callback) {
-        System.out.println("Running put resource with url template");
         putResourceWithUrl(mDefaultFileSourcePtr, url, metadata, new PutOfflineArchiveCallback() {
 
             @Override
