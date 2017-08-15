@@ -61,6 +61,16 @@ public:
 
     void listOfflineRegions(jni::JNIEnv&, jni::Object<FileSource>, jni::Object<ListOfflineRegionsCallback> callback);
 
+    void putResourceWithUrl(jni::JNIEnv&, jni::String url_, jni::Array<jni::jbyte> arr);
+
+    void putTileWithUrlTemplate(jni::JNIEnv&,       
+                            jni::String urlTemplate_,
+                            jfloat pixelRatio, 
+                            jint x, 
+                            jint y, 
+                            jint z, 
+                            jni::Array<jni::jbyte> arr);
+
     void createOfflineRegion(jni::JNIEnv&,
                              jni::Object<FileSource> jFileSource_,
                              jni::Object<OfflineRegionDefinition> definition,
