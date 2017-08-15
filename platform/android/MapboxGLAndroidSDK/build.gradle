@@ -137,6 +137,12 @@ android {
             // aar proguard configuration
             jniDebuggable false
         }
+
+        externalNativeBuild {
+            cmake {
+                path '../../../CMakeLists.txt'
+            }
+        }
     }
 }
 
