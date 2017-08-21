@@ -84,6 +84,12 @@ public class OfflineManager {
     void onError(String error);
   }
 
+  public interface PutOfflineArchiveCallback {
+          void onPut();
+  
+          void onPutError(String error);
+      }
+
   /*
    * Constructor
    */
@@ -172,6 +178,17 @@ public class OfflineManager {
     });
   }
 
+public void putTileWithUrlTemplate(String url, float pixelRatio,
+                                       int x, int y, int z, byte[] metadata, final PutOfflineArchiveCallback callback
+                                       ) {
+        putTileWithUrlTemplate(url, pixelRatio, x, y, z, metadata);
+    }
+
+    public void putResourceWithUrl(String url, byte[] metadata, PutOfflineArchiveCallback callback) {
+        putResourceWithUrl(url, metadata);
+
+    }
+
   /**
    * Create an offline region in the database.
    * <p>
@@ -250,5 +267,8 @@ public class OfflineManager {
 
   private native void createOfflineRegion(FileSource fileSource, OfflineRegionDefinition definition,
                                           byte[] metadata, CreateOfflineRegionCallback callback);
+  private native void putResourceWithUrl(String url, byte[] data);
 
+  private native void putTileWithUrlTemplate(String url, float pixelRatio,
+                                                int x, int y, int z, byte[] data);
 }
