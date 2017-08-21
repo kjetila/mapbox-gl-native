@@ -1,11 +1,9 @@
 #include <mbgl/storage/default_file_source.hpp>
 #include <mbgl/storage/asset_file_source.hpp>
-#include <mbgl/storage/file_source_request.hpp>
 #include <mbgl/storage/local_file_source.hpp>
 #include <mbgl/storage/online_file_source.hpp>
 #include <mbgl/storage/offline_database.hpp>
 #include <mbgl/storage/offline_download.hpp>
-#include <mbgl/storage/resource_transform.hpp>
 
 #include <mbgl/util/platform.hpp>
 #include <mbgl/util/url.hpp>
