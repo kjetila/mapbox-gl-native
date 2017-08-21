@@ -1,5 +1,7 @@
 apply plugin: 'maven'
+apply plugin: 'maven-publish'
 apply plugin: 'signing'
+apply plugin: 'com.android.library'
 apply plugin: 'com.github.dcendents.android-maven'
 
 allprojects {
@@ -7,12 +9,29 @@ allprojects {
     version project.VERSION_NAME
 
     repositories {
-        mavenCentral()
+        mavenLocal()
     }
 }
+publishing {
+    publications {
+        bar(MavenPublication) {
+            groupId GROUP
+            artifactId POM_ARTIFACT_ID
+            version VERSION_NAME
 
+            artifact(apklib)
+            artifact("$buildDir/outputs/aar/MapboxGLAndroidSDK-release.aar")
+        }
+    }
+    repositories {
+        maven {
+            // change to point to your repo, e.g. http://my.org/repo
+            url "file://Users/kjetilandersen/.m2/repository/"
+        }
+    }
+}
 repositories {
-    mavenCentral()
+    mavenLocal()
 }
 
 // From https://raw.github.com/mcxiaoke/gradle-mvn-push/master/jar.gradle
@@ -75,8 +94,9 @@ afterEvaluate { project ->
                 pom.artifactId = POM_ARTIFACT_ID
                 pom.version = VERSION_NAME
 
-                repository(url: getReleaseRepositoryUrl());
-                snapshotRepository(url: getSnapshotRepositoryUrl());
+
+                repository(url: "file://Users/kjetilandersen/.m2/repository/")
+                snapshotRepository(url: getSnapshotRepositoryUrl())
 
 /*
                 // Leaving out as artifact was incorrectly named when found
