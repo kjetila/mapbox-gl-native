@@ -1,10 +1,12 @@
 package com.mapbox.mapboxsdk.offline;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
 import android.support.annotation.NonNull;
 
+import com.mapbox.mapboxsdk.LibraryLoader;
 import com.mapbox.mapboxsdk.R;
 import com.mapbox.mapboxsdk.geometry.LatLngBounds;
 import com.mapbox.mapboxsdk.net.ConnectivityReceiver;
@@ -25,7 +27,7 @@ public class OfflineManager {
   //
 
   static {
-    System.loadLibrary("mapbox-gl");
+    LibraryLoader.load();
   }
 
   // Native peer pointer
@@ -39,6 +41,7 @@ public class OfflineManager {
   private Handler handler;
 
   // This object is implemented as a singleton
+  @SuppressLint("StaticFieldLeak")
   private static OfflineManager instance;
 
   // The application context
@@ -63,6 +66,12 @@ public class OfflineManager {
      */
     void onError(String error);
   }
+
+   public interface PutOfflineArchiveCallback {
+          void onPut();
+  
+          void onPutError(String error);
+      }
 
   /**
    * This callback receives an asynchronous response containing the newly created
@@ -89,11 +98,11 @@ public class OfflineManager {
    */
   private OfflineManager(Context context) {
     this.context = context.getApplicationContext();
-    this.fileSource = FileSource.getInstance(context);
+    this.fileSource = FileSource.getInstance(this.context);
     initialize(fileSource);
 
     // Delete any existing previous ambient cache database
-    deleteAmbientDatabase(context);
+    deleteAmbientDatabase(this.context);
   }
 
   private void deleteAmbientDatabase(final Context context) {
@@ -106,10 +115,10 @@ public class OfflineManager {
           File file = new File(path);
           if (file.exists()) {
             file.delete();
-            Timber.d("Old ambient cache database deleted to save space: " + path);
+            Timber.d("Old ambient cache database deleted to save space: %s", path);
           }
         } catch (Exception exception) {
-          Timber.e("Failed to delete old ambient cache database: ", exception);
+          Timber.e(exception, "Failed to delete old ambient cache database: ");
         }
       }
     }).start();
@@ -225,6 +234,17 @@ public class OfflineManager {
     });
   }
 
+public void putTileWithUrlTemplate(String url, float pixelRatio,
+                                       int x, int y, int z, byte[] metadata, final PutOfflineArchiveCallback callback
+                                       ) {
+        putTileWithUrlTemplate(url, pixelRatio, x, y, z, metadata);
+    }
+
+    public void putResourceWithUrl(String url, byte[] metadata, PutOfflineArchiveCallback callback) {
+        putResourceWithUrl(url, metadata);
+
+    }
+
   /**
    * Validates if the offline region definition bounds is valid for an offline region download.
    *
@@ -235,10 +255,11 @@ public class OfflineManager {
     return LatLngBounds.world().contains(definition.getBounds());
   }
 
-  /*
-  * Changing or bypassing this limit without permission from Mapbox is prohibited
-  * by the Mapbox Terms of Service.
-  */
+  /**
+   * Changing or bypassing this limit without permission from Mapbox is prohibited
+   * by the Mapbox Terms of Service.
+   * @param limit the new tile count limit.
+   */
   public native void setOfflineMapboxTileCountLimit(long limit);
 
   private native void initialize(FileSource fileSource);
@@ -250,5 +271,10 @@ public class OfflineManager {
 
   private native void createOfflineRegion(FileSource fileSource, OfflineRegionDefinition definition,
                                           byte[] metadata, CreateOfflineRegionCallback callback);
+
+  private native void putResourceWithUrl(String url, byte[] data);
+
+  private native void putTileWithUrlTemplate(String url, float pixelRatio,
+                                                int x, int y, int z, byte[] data);
 
 }
