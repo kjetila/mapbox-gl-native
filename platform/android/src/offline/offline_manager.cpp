@@ -38,7 +38,28 @@ void OfflineManager::listOfflineRegions(jni::JNIEnv& env_, jni::Object<FileSourc
         }
     });
 }
-
+void OfflineManager::putResourceWithUrl(jni::JNIEnv& env_, jni::String url_, jni::Array<jni::jbyte> arr){
+    std::string url =  jni::Make<std::string>(env_, url_);
+    mbgl::Resource resource = mbgl::Resource(mbgl::Resource::Kind::Unknown, url);
+    mbgl::Response response = mbgl::Response();
+ 
+    auto data = std::make_shared<std::string>(arr.Length(env_), char());
+    jni::GetArrayRegion(env_, *arr, 0, data->size(), reinterpret_cast<jbyte*>(&(*data)[0]));
+    response.data = data;    
+    fileSource.startPut(resource, response, {});   
+ } 
+ 
+ 
+ void OfflineManager::putTileWithUrlTemplate(jni::JNIEnv& env_, jni::String urlTemplate_, jfloat pixelRatio, jint x, jint y, jint z, jni::Array<jni::jbyte> arr) {
+     std::string urlTemplate = jni::Make<std::string>(env_, urlTemplate_);
+     mbgl::Resource resource = mbgl::Resource::tile(urlTemplate, pixelRatio, x, y, z, mbgl::Tileset::Scheme::XYZ);
+     mbgl::Response response = mbgl::Response();
+ 
+     auto data = std::make_shared<std::string>(arr.Length(env_), char());
+     jni::GetArrayRegion(env_, *arr, 0, data->size(), reinterpret_cast<jbyte*>(&(*data)[0]));
+     response.data = data; 
+     fileSource.startPut(resource, response, {});
+ }
 void OfflineManager::createOfflineRegion(jni::JNIEnv& env_,
                                          jni::Object<FileSource> jFileSource_,
                                          jni::Object<OfflineRegionDefinition> definition_,
@@ -92,8 +113,9 @@ void OfflineManager::registerNative(jni::JNIEnv& env) {
         "finalize",
         METHOD(&OfflineManager::setOfflineMapboxTileCountLimit, "setOfflineMapboxTileCountLimit"),
         METHOD(&OfflineManager::listOfflineRegions, "listOfflineRegions"),
-        METHOD(&OfflineManager::createOfflineRegion, "createOfflineRegion"));
-}
+	METHOD(&OfflineManager::createOfflineRegion, "createOfflineRegion"),
+        METHOD(&OfflineManager::putResourceWithUrl, "putResourceWithUrl"),
+        METHOD(&OfflineManager::putTileWithUrlTemplate, "putTileWithUrlTemplate"));}
 
 // OfflineManager::ListOfflineRegionsCallback //
 
