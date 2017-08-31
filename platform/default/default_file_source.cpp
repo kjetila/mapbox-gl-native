@@ -149,7 +149,7 @@ public:
              offlineDatabase.put(resource, response);
              callback({});
          } catch (...) {
-             callback(std::current_exception());
+            // callback({});
          }
      }
     void put(const Resource& resource, const Response& response) {
@@ -281,7 +281,7 @@ void DefaultFileSource::setOfflineMapboxTileCountLimit(uint64_t limit) const {
     thread->invokeSync(&Impl::setOfflineMapboxTileCountLimit, limit);
 }
 void DefaultFileSource::startPut(const Resource& resource, const Response& response, std::function<void (std::exception_ptr)> callback) {
-     impl->actor().invoke(&Impl::startPut, resource, response, callback);
+     thread->invoke(&Impl::startPut, resource, response, callback);
  }
 void DefaultFileSource::pause() {
     thread->pause();

@@ -4,7 +4,7 @@ package com.mapbox.mapboxsdk.offline;
  * Created by kjetilandersen on 22.12.16.
  */
 
-public class Resource {
+public class Response {
     //
     // Static methods
     //
@@ -14,11 +14,8 @@ public class Resource {
     }
 
     //Constructor
-    private Resource() {
+    private Response() {
         //For JNI use only
     }
 
-    public Resource(String urlTemplate, float pixelRatio, int x, int y, int z) {
-
-    }
 }

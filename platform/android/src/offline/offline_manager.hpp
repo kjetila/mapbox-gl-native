@@ -31,6 +31,22 @@ public:
 
         static void registerNative(jni::JNIEnv&);
     };
+    
+   /* class PutOfflineCallback {
+    public:
+        static constexpr auto Name() { return "com/mapbox/mapboxsdk/offline/OfflineManager$PutOfflineCallback";}
+
+        static void onError(jni::JNIEnv&, jni::Object<OfflineManager::PutOfflineCallback>, std::exception_ptr);
+
+        static void onPut(jni::JNIEnv&,
+                            jni::Object<OfflineManager::PutOfflineCallback>
+                            );
+
+        static jni::Class<OfflineManager::PutOfflineCallback> javaClass;
+
+        static void registerNative(jni::JNIEnv&);
+    };
+*/
 
     class CreateOfflineRegionCallback {
     public:
@@ -60,9 +76,10 @@ public:
     void setOfflineMapboxTileCountLimit(jni::JNIEnv&, jni::jlong limit);
 
     void listOfflineRegions(jni::JNIEnv&, jni::Object<FileSource>, jni::Object<ListOfflineRegionsCallback> callback);
-void putResourceWithUrl(jni::JNIEnv&, jni::String url_, jni::Array<jni::jbyte> arr);
- 
-     void putTileWithUrlTemplate(jni::JNIEnv&,       
+    
+    void putResourceWithUrl(jni::JNIEnv&, jni::String url_, jni::Array<jni::jbyte> arr);
+    
+    void putTileWithUrlTemplate(jni::JNIEnv&,       
                              jni::String urlTemplate_,
                              jfloat pixelRatio, 
                              jint x, 

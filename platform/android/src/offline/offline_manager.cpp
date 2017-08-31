@@ -1,6 +1,7 @@
 #include "offline_manager.hpp"
 
 #include <mbgl/util/string.hpp>
+#include <mbgl/util/chrono.hpp>
 
 #include "../attach_env.hpp"
 #include "../jni/generic_global_ref_deleter.hpp"
@@ -42,11 +43,12 @@ void OfflineManager::putResourceWithUrl(jni::JNIEnv& env_, jni::String url_, jni
     std::string url =  jni::Make<std::string>(env_, url_);
     mbgl::Resource resource = mbgl::Resource(mbgl::Resource::Kind::Unknown, url);
     mbgl::Response response = mbgl::Response();
+    response.expires = mbgl::util::now() + mbgl::Seconds(60 * 60 * 24 * 365);
  
     auto data = std::make_shared<std::string>(arr.Length(env_), char());
     jni::GetArrayRegion(env_, *arr, 0, data->size(), reinterpret_cast<jbyte*>(&(*data)[0]));
     response.data = data;    
-    fileSource.startPut(resource, response, {});   
+    fileSource.startPut(resource, response, {});
  } 
  
  
@@ -54,10 +56,12 @@ void OfflineManager::putResourceWithUrl(jni::JNIEnv& env_, jni::String url_, jni
      std::string urlTemplate = jni::Make<std::string>(env_, urlTemplate_);
      mbgl::Resource resource = mbgl::Resource::tile(urlTemplate, pixelRatio, x, y, z, mbgl::Tileset::Scheme::XYZ);
      mbgl::Response response = mbgl::Response();
+     response.expires = mbgl::util::now() + mbgl::Seconds(60 * 60 * 24 * 365);
  
      auto data = std::make_shared<std::string>(arr.Length(env_), char());
      jni::GetArrayRegion(env_, *arr, 0, data->size(), reinterpret_cast<jbyte*>(&(*data)[0]));
-     response.data = data; 
+     response.data = data;
+    // free(data);
      fileSource.startPut(resource, response, {});
  }
 void OfflineManager::createOfflineRegion(jni::JNIEnv& env_,
@@ -102,6 +106,7 @@ jni::Class<OfflineManager> OfflineManager::javaClass;
 void OfflineManager::registerNative(jni::JNIEnv& env) {
     OfflineManager::ListOfflineRegionsCallback::registerNative(env);
     OfflineManager::CreateOfflineRegionCallback::registerNative(env);
+    //OfflineManager::PutOfflineCallback::registerNative(env);
 
     javaClass = *jni::Class<OfflineManager>::Find(env).NewGlobalRef(env).release();
 
@@ -113,7 +118,7 @@ void OfflineManager::registerNative(jni::JNIEnv& env) {
         "finalize",
         METHOD(&OfflineManager::setOfflineMapboxTileCountLimit, "setOfflineMapboxTileCountLimit"),
         METHOD(&OfflineManager::listOfflineRegions, "listOfflineRegions"),
-	METHOD(&OfflineManager::createOfflineRegion, "createOfflineRegion"),
+	    METHOD(&OfflineManager::createOfflineRegion, "createOfflineRegion"),
         METHOD(&OfflineManager::putResourceWithUrl, "putResourceWithUrl"),
         METHOD(&OfflineManager::putTileWithUrlTemplate, "putTileWithUrlTemplate"));}
 

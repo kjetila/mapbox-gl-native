@@ -64,11 +64,11 @@ public class OfflineManager {
     void onError(String error);
   }
 
-public interface PutOfflineArchiveCallback {
+public interface PutOfflineCallback {
  
      void onPut();
  
-     void onPutError(String error);
+     void onError(String error);
  
    }
 
@@ -104,7 +104,7 @@ public interface PutOfflineArchiveCallback {
     deleteAmbientDatabase(context);
   }
 
-  private void deleteAmbientDatabase(final Context context) {
+  public void deleteAmbientDatabase(final Context context) {
     // Delete the file in a separate thread to avoid affecting the UI
     new Thread(new Runnable() {
       @Override
@@ -245,12 +245,12 @@ public interface PutOfflineArchiveCallback {
 
 
 public void putTileWithUrlTemplate(String url, float pixelRatio,
-                                        int x, int y, int z, byte[] metadata, final PutOfflineArchiveCallback callback
+                                        int x, int y, int z, byte[] metadata, final PutOfflineCallback callback
                                         ) {
              putTileWithUrlTemplate(url, pixelRatio, x, y, z, metadata);
    }
  
-   public void putResourceWithUrl(String url, byte[] metadata, PutOfflineArchiveCallback callback) {
+   public void putResourceWithUrl(String url, byte[] metadata, PutOfflineCallback callback) {
      putResourceWithUrl(url, metadata);
    }
   /*
@@ -268,8 +268,10 @@ public void putTileWithUrlTemplate(String url, float pixelRatio,
 
   private native void createOfflineRegion(FileSource fileSource, OfflineRegionDefinition definition,
                                           byte[] metadata, CreateOfflineRegionCallback callback);
-private native void putResourceWithUrl(String url, byte[] data);
+  private native void putResourceWithUrl(String url, byte[] data);
  
-   private native void putTileWithUrlTemplate(String url, float pixelRatio,
+  private native void putTileWithUrlTemplate(String url, float pixelRatio,
                                                 int x, int y, int z, byte[] data);
+
+  public native void runGC();
 }
