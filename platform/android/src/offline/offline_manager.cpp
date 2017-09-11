@@ -1,6 +1,7 @@
 #include "offline_manager.hpp"
 
 #include <mbgl/util/string.hpp>
+#include <mbgl/util/logging.hpp>
 #include <mbgl/util/chrono.hpp>
 
 #include "../attach_env.hpp"
@@ -40,30 +41,47 @@ void OfflineManager::listOfflineRegions(jni::JNIEnv& env_, jni::Object<FileSourc
     });
 }
 void OfflineManager::putResourceWithUrl(jni::JNIEnv& env_, jni::String url_, jni::Array<jni::jbyte> arr){
-    std::string url =  jni::Make<std::string>(env_, url_);
-    mbgl::Resource resource = mbgl::Resource(mbgl::Resource::Kind::Unknown, url);
+    auto url =  jni::Make<std::string>(env_, url_);
+    auto resource = mbgl::Resource(mbgl::Resource::Kind::Unknown, url);
     mbgl::Response response = mbgl::Response();
     response.expires = mbgl::util::now() + mbgl::Seconds(60 * 60 * 24 * 365);
  
     auto data = std::make_shared<std::string>(arr.Length(env_), char());
     jni::GetArrayRegion(env_, *arr, 0, data->size(), reinterpret_cast<jbyte*>(&(*data)[0]));
-    response.data = data;    
+    response.data = data;
+    
     fileSource.startPut(resource, response, {});
+    //delete response;
+
  } 
+
+ void OfflineManager::clear(jni::JNIEnv&) {
+    fileSource.clear();
+ }
  
  
  void OfflineManager::putTileWithUrlTemplate(jni::JNIEnv& env_, jni::String urlTemplate_, jfloat pixelRatio, jint x, jint y, jint z, jni::Array<jni::jbyte> arr) {
-     std::string urlTemplate = jni::Make<std::string>(env_, urlTemplate_);
+     auto urlTemplate = jni::Make<std::string>(env_, urlTemplate_);
      mbgl::Resource resource = mbgl::Resource::tile(urlTemplate, pixelRatio, x, y, z, mbgl::Tileset::Scheme::XYZ);
      mbgl::Response response = mbgl::Response();
      response.expires = mbgl::util::now() + mbgl::Seconds(60 * 60 * 24 * 365);
- 
-     auto data = std::make_shared<std::string>(arr.Length(env_), char());
+    
+     auto length = jni::GetArrayLength(env_, *arr);
+     auto data = std::make_shared<std::string>(length, char());
+     //auto data = std::make_unique<std::string>(jni::GetArrayLength(env_, *arr), char());
      jni::GetArrayRegion(env_, *arr, 0, data->size(), reinterpret_cast<jbyte*>(&(*data)[0]));
      response.data = data;
     // free(data);
      fileSource.startPut(resource, response, {});
+     //Log::Debug(Event::Database, "Size: " + util::toString(sizeof(env_)));
+
+     data.reset();
+     response.data = data;
+     //Delete references
+     //jni::DeleteLocalRef(env_, urlTemplate);
+     //jni::DeleteLocalRef(env_, arr);
  }
+
 void OfflineManager::createOfflineRegion(jni::JNIEnv& env_,
                                          jni::Object<FileSource> jFileSource_,
                                          jni::Object<OfflineRegionDefinition> definition_,
@@ -119,6 +137,7 @@ void OfflineManager::registerNative(jni::JNIEnv& env) {
         METHOD(&OfflineManager::setOfflineMapboxTileCountLimit, "setOfflineMapboxTileCountLimit"),
         METHOD(&OfflineManager::listOfflineRegions, "listOfflineRegions"),
 	    METHOD(&OfflineManager::createOfflineRegion, "createOfflineRegion"),
+        METHOD(&OfflineManager::clear, "clear"),
         METHOD(&OfflineManager::putResourceWithUrl, "putResourceWithUrl"),
         METHOD(&OfflineManager::putTileWithUrlTemplate, "putTileWithUrlTemplate"));}
 

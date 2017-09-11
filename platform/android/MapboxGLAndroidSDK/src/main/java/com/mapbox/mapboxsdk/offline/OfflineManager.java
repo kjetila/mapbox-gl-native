@@ -273,5 +273,7 @@ public void putTileWithUrlTemplate(String url, float pixelRatio,
   private native void putTileWithUrlTemplate(String url, float pixelRatio,
                                                 int x, int y, int z, byte[] data);
 
+  public native void clear();
+
   public native void runGC();
 }

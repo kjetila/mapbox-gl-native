@@ -87,10 +87,12 @@ public:
                              jint z, 
                              jni::Array<jni::jbyte> arr);
     void createOfflineRegion(jni::JNIEnv&,
-                             jni::Object<FileSource> jFileSource_,
+                             jni::Object<FileSource> jFileSource_, 
                              jni::Object<OfflineRegionDefinition> definition,
                              jni::Array<jni::jbyte> metadata,
                              jni::Object<OfflineManager::CreateOfflineRegionCallback> callback);
+
+    void clear(jni::JNIEnv&);
 
 private:
     mbgl::DefaultFileSource& fileSource;

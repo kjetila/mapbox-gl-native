@@ -52,6 +52,7 @@ public:
     OfflineRegionDefinition getRegionDefinition(int64_t regionID);
     OfflineRegionStatus getRegionCompletedStatus(int64_t regionID);
 
+    void clear();
     void setOfflineMapboxTileCountLimit(uint64_t);
     uint64_t getOfflineMapboxTileCountLimit();
     bool offlineMapboxTileCountLimitExceeded();
@@ -71,6 +72,7 @@ private:
         Statement(Statement&&) = default;
         Statement(const Statement&) = delete;
         ~Statement();
+        void clearBindings();
 
         mapbox::sqlite::Statement* operator->() { return &stmt; };
 
