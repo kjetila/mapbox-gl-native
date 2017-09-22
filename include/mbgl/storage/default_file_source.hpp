@@ -120,7 +120,9 @@ public:
 
     void clear() const;
 
-void startPut(const Resource& resource, const Response& response, std::function<void (std::exception_ptr)> callback);
+    void startPutRegionResource(OfflineRegion& region, const Resource& resource, const Response& response, const bool compressed, std::function<void (std::exception_ptr)> callback);
+    void startPutRegionResource(const int64_t regionID, const Resource& resource, const Response& response, const bool compressed, std::function<void (std::exception_ptr)> callback);
+
     /*
      * Pause file request activity.
      *

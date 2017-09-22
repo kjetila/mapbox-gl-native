@@ -40,7 +40,7 @@ void OfflineManager::listOfflineRegions(jni::JNIEnv& env_, jni::Object<FileSourc
         }
     });
 }
-void OfflineManager::putResourceWithUrl(jni::JNIEnv& env_, jni::String url_, jni::Array<jni::jbyte> arr){
+void OfflineManager::putResourceWithUrl(jni::JNIEnv& env_, jni::String url_, jni::Array<jni::jbyte> arr, jboolean compressed, jni::Object<OfflineRegion> region_, jni::Object<PutOfflineCallback> callback_){
     auto url =  jni::Make<std::string>(env_, url_);
     auto resource = mbgl::Resource(mbgl::Resource::Kind::Unknown, url);
     mbgl::Response response = mbgl::Response();
@@ -50,9 +50,23 @@ void OfflineManager::putResourceWithUrl(jni::JNIEnv& env_, jni::String url_, jni
     jni::GetArrayRegion(env_, *arr, 0, data->size(), reinterpret_cast<jbyte*>(&(*data)[0]));
     response.data = data;
     
-    fileSource.startPut(resource, response, {});
-    //delete response;
-
+    static auto field = mbgl::android::OfflineRegion::javaClass.GetField<jlong>(env_, "nativePtr");
+    mbgl::android::OfflineRegion *region = reinterpret_cast<mbgl::android::OfflineRegion *>(region_.Get(env_, field));
+    fileSource.startPutRegionResource(region->getID(), resource, response, compressed, [
+        //Keep a shared ptr to a global reference of the callback and file source so they are not GC'd in the meanwhile
+        callback = std::shared_ptr<jni::jobject>(callback_.NewGlobalRef(env_).release()->Get(), GenericGlobalRefDeleter())
+    ](std::exception_ptr error) mutable {
+        
+        // Reattach, the callback comes from a different thread
+        android::UniqueEnv env = android::AttachEnv();
+        
+        if (error) {
+            OfflineManager::PutOfflineCallback::onError(*env, jni::Object<PutOfflineCallback>(*callback), error);
+        } else {
+            OfflineManager::PutOfflineCallback::onPut(*env, jni::Object<PutOfflineCallback>(*callback));
+        }
+        
+    });
  } 
 
  void OfflineManager::clear(jni::JNIEnv&) {
@@ -60,7 +74,7 @@ void OfflineManager::putResourceWithUrl(jni::JNIEnv& env_, jni::String url_, jni
  }
  
  
- void OfflineManager::putTileWithUrlTemplate(jni::JNIEnv& env_, jni::String urlTemplate_, jfloat pixelRatio, jint x, jint y, jint z, jni::Array<jni::jbyte> arr) {
+ void OfflineManager::putTileWithUrlTemplate(jni::JNIEnv& env_, jni::String urlTemplate_, jfloat pixelRatio, jint x, jint y, jint z, jni::Array<jni::jbyte> arr, jboolean compressed, jni::Object<mbgl::android::OfflineRegion> region_, jni::Object<PutOfflineCallback> callback_) {
      auto urlTemplate = jni::Make<std::string>(env_, urlTemplate_);
      mbgl::Resource resource = mbgl::Resource::tile(urlTemplate, pixelRatio, x, y, z, mbgl::Tileset::Scheme::XYZ);
      mbgl::Response response = mbgl::Response();
@@ -72,16 +86,27 @@ void OfflineManager::putResourceWithUrl(jni::JNIEnv& env_, jni::String url_, jni
      jni::GetArrayRegion(env_, *arr, 0, data->size(), reinterpret_cast<jbyte*>(&(*data)[0]));
      response.data = data;
     // free(data);
-     fileSource.startPut(resource, response, {});
-     //Log::Debug(Event::Database, "Size: " + util::toString(sizeof(env_)));
+     
+     static auto field = mbgl::android::OfflineRegion::javaClass.GetField<jlong>(env_, "nativePtr");
+     mbgl::android::OfflineRegion *region = reinterpret_cast<mbgl::android::OfflineRegion *>(region_.Get(env_, field));
+     fileSource.startPutRegionResource(region->getID(), resource, response, compressed, [
+         //Keep a shared ptr to a global reference of the callback and file source so they are not GC'd in the meanwhile
+         callback = std::shared_ptr<jni::jobject>(callback_.NewGlobalRef(env_).release()->Get(), GenericGlobalRefDeleter())
+     ](std::exception_ptr error) mutable {
+        
+         // Reattach, the callback comes from a different thread
+         android::UniqueEnv env = android::AttachEnv();
+        
+         if (error) {
+             OfflineManager::PutOfflineCallback::onError(*env, jni::Object<PutOfflineCallback>(*callback), error);
+         } else {
+             OfflineManager::PutOfflineCallback::onPut(*env, jni::Object<PutOfflineCallback>(*callback));
+         }
+        
+     });
 
-     data.reset();
-     response.data = data;
-     //Delete references
-     //jni::DeleteLocalRef(env_, urlTemplate);
-     //jni::DeleteLocalRef(env_, arr);
  }
-
+ 
 void OfflineManager::createOfflineRegion(jni::JNIEnv& env_,
                                          jni::Object<FileSource> jFileSource_,
                                          jni::Object<OfflineRegionDefinition> definition_,
@@ -124,7 +149,7 @@ jni::Class<OfflineManager> OfflineManager::javaClass;
 void OfflineManager::registerNative(jni::JNIEnv& env) {
     OfflineManager::ListOfflineRegionsCallback::registerNative(env);
     OfflineManager::CreateOfflineRegionCallback::registerNative(env);
-    //OfflineManager::PutOfflineCallback::registerNative(env);
+    OfflineManager::PutOfflineCallback::registerNative(env);
 
     javaClass = *jni::Class<OfflineManager>::Find(env).NewGlobalRef(env).release();
 
@@ -204,6 +229,26 @@ jni::Class<OfflineManager::CreateOfflineRegionCallback> OfflineManager::CreateOf
 
 void OfflineManager::CreateOfflineRegionCallback::registerNative(jni::JNIEnv& env) {
     javaClass = *jni::Class<OfflineManager::CreateOfflineRegionCallback>::Find(env).NewGlobalRef(env).release();
+}
+
+void OfflineManager::PutOfflineCallback::onError(jni::JNIEnv& env,
+                                                          jni::Object<OfflineManager::PutOfflineCallback> callback,
+                                                          std::exception_ptr error) {
+    static auto method = javaClass.GetMethod<void (jni::String)>(env, "onError");
+    std::string message = mbgl::util::toString(error);
+    callback.Call(env, method, jni::Make<jni::String>(env, message));
+}
+
+void OfflineManager::PutOfflineCallback::onPut(jni::JNIEnv& env,
+                                                        jni::Object<OfflineManager::PutOfflineCallback> callback) {
+    static auto method = javaClass.GetMethod<void (void)>(env, "onPut");
+    callback.Call(env, method);
+}
+
+jni::Class<OfflineManager::PutOfflineCallback> OfflineManager::PutOfflineCallback::javaClass;
+
+void OfflineManager::PutOfflineCallback::registerNative(jni::JNIEnv& env) {
+    javaClass = *jni::Class<OfflineManager::PutOfflineCallback>::Find(env).NewGlobalRef(env).release();
 }
 
 } // namespace android

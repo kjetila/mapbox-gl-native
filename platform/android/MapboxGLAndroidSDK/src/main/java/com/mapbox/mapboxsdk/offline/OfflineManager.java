@@ -243,16 +243,6 @@ public interface PutOfflineCallback {
     return LatLngBounds.world().contains(definition.getBounds());
   }
 
-
-public void putTileWithUrlTemplate(String url, float pixelRatio,
-                                        int x, int y, int z, byte[] metadata, final PutOfflineCallback callback
-                                        ) {
-             putTileWithUrlTemplate(url, pixelRatio, x, y, z, metadata);
-   }
- 
-   public void putResourceWithUrl(String url, byte[] metadata, PutOfflineCallback callback) {
-     putResourceWithUrl(url, metadata);
-   }
   /*
   * Changing or bypassing this limit without permission from Mapbox is prohibited
   * by the Mapbox Terms of Service.
@@ -268,10 +258,11 @@ public void putTileWithUrlTemplate(String url, float pixelRatio,
 
   private native void createOfflineRegion(FileSource fileSource, OfflineRegionDefinition definition,
                                           byte[] metadata, CreateOfflineRegionCallback callback);
-  private native void putResourceWithUrl(String url, byte[] data);
+
+  public native void putResourceWithUrl(String url, byte[] data, boolean compressed, OfflineRegion region, PutOfflineCallback callback);
  
-  private native void putTileWithUrlTemplate(String url, float pixelRatio,
-                                                int x, int y, int z, byte[] data);
+  public native void putTileWithUrlTemplate(String url, float pixelRatio,
+                                                int x, int y, int z, byte[] data, boolean compressed, OfflineRegion region, PutOfflineCallback callback);
 
   public native void clear();
 
