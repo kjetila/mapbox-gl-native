@@ -17,6 +17,8 @@ xcuserdata
 /test/fixtures/api/2.png
 /test/fixtures/offline_database/offline.db
 /test/fixtures/offline_database/offline.db-*
+/test/fixtures/offline_database/satellite.db
+/test/fixtures/offline_database/satellite.db-*
 /test/fixtures/offline_database/invalid.db
 /test/fixtures/offline_database/invalid.db-*
 /test/fixtures/offline_database/migrated.db
@@ -34,3 +36,8 @@ xcuserdata
 test/fixtures/api/assets.zip
 test/fixtures/storage/assets.zip
 /.circle-week
+
+# Generated list files from code generation
+/scripts/generate-cmake-files.list
+/scripts/generate-shaders.list
+/scripts/generate-style-code.list

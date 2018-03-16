@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="12120" systemVersion="16E195" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" customObjectInstantitationMethod="direct">
+<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="13771" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" customObjectInstantitationMethod="direct">
     <dependencies>
-        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="12120"/>
+        <deployment identifier="macosx"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="13771"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
     <objects>
@@ -126,6 +127,12 @@
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
                                     <action selector="revertDocumentToSaved:" target="-1" id="iJ3-Pv-kwq"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Export Image…" id="vjX-0E-kLO">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="takeSnapshot:" target="-1" id="H06-sU-n4U"/>
                                 </connections>
                             </menuItem>
                             <menuItem isSeparatorItem="YES" id="aJh-i4-bef"/>
@@ -548,18 +555,6 @@
                                     <action selector="drawAnimatedAnnotation:" target="-1" id="CYM-WB-s97"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Add Lime Green Layer" id="UWY-vl-t2m">
-                                <modifierMask key="keyEquivalentModifierMask"/>
-                                <connections>
-                                    <action selector="insertCustomStyleLayer:" target="-1" id="LE5-lz-kx3"/>
-                                </connections>
-                            </menuItem>
-                            <menuItem title="Add Animated Image Source" id="tjA-fT-GbA">
-                                <modifierMask key="keyEquivalentModifierMask"/>
-                                <connections>
-                                    <action selector="addAnimatedImageSource:" target="-1" id="TuN-Pa-hTG"/>
-                                </connections>
-                            </menuItem>
                             <menuItem title="Show All Annnotations" keyEquivalent="A" id="yMj-uM-8SN">
                                 <modifierMask key="keyEquivalentModifierMask" shift="YES" command="YES"/>
                                 <connections>
@@ -572,6 +567,31 @@ CA
 </string>
                                 <connections>
                                     <action selector="removeAllAnnotations:" target="-1" id="6v3-0E-LsR"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem isSeparatorItem="YES" id="cbI-Nd-MAp"/>
+                            <menuItem title="Add Lime Green Layer" id="UWY-vl-t2m">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="insertCustomStyleLayer:" target="-1" id="LE5-lz-kx3"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Add Animated Image Source" id="tjA-fT-GbA">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="addAnimatedImageSource:" target="-1" id="TuN-Pa-hTG"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Add Graticule" id="Msk-p2-Lwt">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="insertGraticuleLayer:" target="-1" id="LE5-lz-kx4"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Enhance Terrain" id="2ZT-uE-kUR">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="enhanceTerrain:" target="-1" id="TXX-Yv-ZY1"/>
                                 </connections>
                             </menuItem>
                             <menuItem isSeparatorItem="YES" id="wQq-Mx-QY0"/>
@@ -760,7 +780,7 @@ CA
                                                 <binding destination="dWe-R6-sRz" name="value" keyPath="arrangedObjects.stateImage" id="2wd-1J-TZt"/>
                                             </connections>
                                         </tableColumn>
-                                        <tableColumn editable="NO" width="116" minWidth="40" maxWidth="1000" id="2hD-LN-h0L">
+                                        <tableColumn identifier="" editable="NO" width="116" minWidth="40" maxWidth="1000" id="2hD-LN-h0L">
                                             <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" title="Name">
                                                 <font key="font" metaFont="smallSystem"/>
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
@@ -780,7 +800,7 @@ CA
                                                 </binding>
                                             </connections>
                                         </tableColumn>
-                                        <tableColumn editable="NO" width="50" minWidth="40" maxWidth="1000" id="pkI-c7-xoD">
+                                        <tableColumn identifier="" editable="NO" width="50" minWidth="40" maxWidth="1000" id="pkI-c7-xoD">
                                             <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" title="Downloaded Resources">
                                                 <font key="font" metaFont="smallSystem"/>
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
@@ -814,7 +834,7 @@ CA
                                                 <binding destination="dWe-R6-sRz" name="value" keyPath="arrangedObjects.countOfResourcesExpected" id="mh2-k0-vvB"/>
                                             </connections>
                                         </tableColumn>
-                                        <tableColumn editable="NO" width="50" minWidth="40" maxWidth="1000" id="kCO-Cd-bQt">
+                                        <tableColumn identifier="" editable="NO" width="50" minWidth="40" maxWidth="1000" id="kCO-Cd-bQt">
                                             <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" title="Downloaded Tiles">
                                                 <font key="font" metaFont="smallSystem"/>
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>
@@ -835,7 +855,7 @@ CA
                                                 </binding>
                                             </connections>
                                         </tableColumn>
-                                        <tableColumn editable="NO" width="60" minWidth="10" maxWidth="3.4028234663852886e+38" id="WO5-Ci-HgG">
+                                        <tableColumn identifier="" editable="NO" width="60" minWidth="10" maxWidth="3.4028234663852886e+38" id="WO5-Ci-HgG">
                                             <tableHeaderCell key="headerCell" lineBreakMode="truncatingTail" borderStyle="border" alignment="left" title="Downloaded Tiles Size">
                                                 <font key="font" metaFont="smallSystem"/>
                                                 <color key="textColor" name="headerTextColor" catalog="System" colorSpace="catalog"/>

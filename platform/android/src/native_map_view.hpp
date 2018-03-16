@@ -1,6 +1,5 @@
 #pragma once
 
-#include <mbgl/renderer/renderer_backend.hpp>
 #include <mbgl/map/change.hpp>
 #include <mbgl/map/camera.hpp>
 #include <mbgl/map/map.hpp>
@@ -10,19 +9,20 @@
 #include <mbgl/storage/default_file_source.hpp>
 #include <mbgl/storage/network_status.hpp>
 
-#include "file_source.hpp"
 #include "annotation/marker.hpp"
 #include "annotation/polygon.hpp"
 #include "annotation/polyline.hpp"
 #include "graphics/pointf.hpp"
 #include "graphics/rectf.hpp"
 #include "geojson/feature.hpp"
+#include "geojson/geometry.hpp"
 #include "geometry/lat_lng.hpp"
 #include "geometry/projected_meters.hpp"
 #include "style/layers/layers.hpp"
-#include "style/sources/sources.hpp"
+#include "style/sources/source.hpp"
 #include "geometry/lat_lng_bounds.hpp"
 #include "map/camera_position.hpp"
+#include "map/image.hpp"
 #include "style/light.hpp"
 #include "bitmap.hpp"
 
@@ -37,8 +37,10 @@ namespace mbgl {
 namespace android {
 
 class AndroidRendererFrontend;
+class FileSource;
+class MapRenderer;
 
-class NativeMapView : public RendererBackend, public MapObserver {
+class NativeMapView : public MapObserver {
 public:
 
     static constexpr auto Name() { return "com/mapbox/mapboxsdk/maps/NativeMapView"; };
@@ -50,15 +52,10 @@ public:
     NativeMapView(jni::JNIEnv&,
                   jni::Object<NativeMapView>,
                   jni::Object<FileSource>,
-                  jni::jfloat pixelRatio,
-                  jni::String programCacheDir);
+                  jni::Object<MapRenderer>,
+                  jni::jfloat pixelRatio);
 
     virtual ~NativeMapView();
-
-    // mbgl::RendererBackend //
-
-    void bind() override;
-    void updateAssumedState() override;
 
     // Deprecated //
     void notifyMapChange(mbgl::MapChange);
@@ -77,22 +74,9 @@ public:
     void onDidFinishLoadingStyle() override;
     void onSourceChanged(mbgl::style::Source&) override;
 
-    // Signal the view system, we want to redraw
-    void invalidate();
-
     // JNI //
 
-    void render(jni::JNIEnv&);
-
-    void update(jni::JNIEnv&);
-
     void resizeView(jni::JNIEnv&, int, int);
-
-    void resizeFramebuffer(jni::JNIEnv&, int, int);
-
-    void createSurface(jni::JNIEnv&, jni::Object<>);
-
-    void destroySurface(jni::JNIEnv&);
 
     jni::String getStyleUrl(jni::JNIEnv&);
 
@@ -121,6 +105,8 @@ public:
     void setLatLng(jni::JNIEnv&, jni::jdouble, jni::jdouble, jni::jlong);
 
     jni::Object<CameraPosition> getCameraForLatLngBounds(jni::JNIEnv&, jni::Object<mbgl::android::LatLngBounds>);
+
+    jni::Object<CameraPosition> getCameraForGeometry(jni::JNIEnv&, jni::Object<geojson::Geometry>, double bearing);
 
     void setReachability(jni::JNIEnv&, jni::jboolean);
 
@@ -159,8 +145,6 @@ public:
     void setContentPadding(JNIEnv&, double, double, double, double);
 
     void scheduleSnapshot(jni::JNIEnv&);
-
-    void enableFps(jni::JNIEnv&, jni::jboolean enable);
 
     jni::Object<CameraPosition> getCameraPosition(jni::JNIEnv&);
 
@@ -214,6 +198,8 @@ public:
 
     jni::Array<jlong> queryPointAnnotations(JNIEnv&, jni::Object<RectF>);
 
+    jni::Array<jlong> queryShapeAnnotations(JNIEnv&, jni::Object<RectF>);
+
     jni::Array<jni::Object<geojson::Feature>> queryRenderedFeaturesForPoint(JNIEnv&, jni::jfloat, jni::jfloat,
                                                                    jni::Array<jni::String>,
                                                                    jni::Array<jni::Object<>> jfilter);
@@ -244,13 +230,15 @@ public:
 
     jni::Object<Source> getSource(JNIEnv&, jni::String);
 
-    void addSource(JNIEnv&, jni::jlong);
+    void addSource(JNIEnv&, jni::Object<Source>, jlong nativePtr);
 
     jni::Object<Source> removeSourceById(JNIEnv&, jni::String);
 
-    void removeSource(JNIEnv&, jlong);
+    void removeSource(JNIEnv&, jni::Object<Source>, jlong nativePtr);
 
     void addImage(JNIEnv&, jni::String, jni::jint, jni::jint, jni::jfloat, jni::Array<jbyte>);
+
+    void addImages(JNIEnv&, jni::Array<jni::Object<mbgl::android::Image>>);
 
     void removeImage(JNIEnv&, jni::String);
 
@@ -260,69 +248,22 @@ public:
 
     jni::jboolean getPrefetchesTiles(JNIEnv&);
 
-protected:
-    // mbgl::RendererBackend //
-
-    gl::ProcAddress initializeExtension(const char*) override;
-    void activate() override;
-    void deactivate() override;
-
-private:
-    void _initializeDisplay();
-
-    void _terminateDisplay();
-
-    void _initializeContext();
-
-    void _terminateContext();
-
-    void _createSurface(ANativeWindow*);
-
-    void _destroySurface();
-
-    EGLConfig chooseConfig(const EGLConfig configs[], EGLint numConfigs);
-
-    mbgl::Size getFramebufferSize() const;
-
-    void updateFps();
-
 private:
     std::unique_ptr<AndroidRendererFrontend> rendererFrontend;
 
     JavaVM *vm = nullptr;
     jni::UniqueWeakObject<NativeMapView> javaPeer;
 
+    MapRenderer& mapRenderer;
+
     std::string styleUrl;
     std::string apiKey;
 
-    ANativeWindow *window = nullptr;
-
-    EGLConfig config = nullptr;
-    EGLint format = -1;
-
-    EGLDisplay oldDisplay = EGL_NO_DISPLAY;
-    EGLSurface oldReadSurface = EGL_NO_SURFACE;
-    EGLSurface oldDrawSurface = EGL_NO_SURFACE;
-    EGLContext oldContext = EGL_NO_CONTEXT;
-
-    EGLDisplay display = EGL_NO_DISPLAY;
-    EGLSurface surface = EGL_NO_SURFACE;
-    EGLContext context = EGL_NO_CONTEXT;
-
-
     float pixelRatio;
-    bool fpsEnabled = false;
-    bool snapshot = false;
-    bool firstRender = true;
-    double fps = 0.0;
 
     // Minimum texture size according to OpenGL ES 2.0 specification.
     int width = 64;
     int height = 64;
-    int fbWidth = 64;
-    int fbHeight = 64;
-
-    bool framebufferSizeChanged = true;
 
     // Ensure these are initialised last
     std::shared_ptr<mbgl::ThreadPool> threadPool;

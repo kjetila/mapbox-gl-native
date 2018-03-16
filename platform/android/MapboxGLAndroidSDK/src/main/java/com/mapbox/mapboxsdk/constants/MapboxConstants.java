@@ -48,6 +48,31 @@ public class MapboxConstants {
   public static final long VELOCITY_THRESHOLD_IGNORE_FLING = 1000;
 
   /**
+   * Value by which the default rotation threshold will be increased when scaling
+   */
+  public static final float ROTATION_THRESHOLD_INCREASE_WHEN_SCALING = 25f;
+
+  /**
+   * Time within which user needs to lift fingers for velocity animation to start.
+   */
+  public static final long SCHEDULED_ANIMATION_TIMEOUT = 150L;
+
+  /**
+   * Minimum angular velocity for rotation animation
+   */
+  public static final float MINIMUM_ANGULAR_VELOCITY = 1.5f;
+
+  /**
+   * Maximum angular velocity for rotation animation
+   */
+  public static final float MAXIMUM_ANGULAR_VELOCITY = 20f;
+
+  /**
+   * Factor to calculate tilt change based on pixel change during shove gesture.
+   */
+  public static final float SHOVE_PIXEL_CHANGE_FACTOR = 0.1f;
+
+  /**
    * The currently supported minimum zoom level.
    */
   public static final float MINIMUM_ZOOM = 0.0f;
@@ -78,14 +103,14 @@ public class MapboxConstants {
   public static final double MINIMUM_DIRECTION = 0;
 
   /**
-   * The currently used minimun scale factor to clamp to when a quick zoom gesture occurs
+   * The currently used minimum scale factor to clamp to when a quick zoom gesture occurs
    */
-  public static final float MINIMUM_SCALE_FACTOR_CLAMP = 0.65f;
+  public static final float MINIMUM_SCALE_FACTOR_CLAMP = 0.00f;
 
   /**
    * The currently used maximum scale factor to clamp to when a quick zoom gesture occurs
    */
-  public static final float MAXIMUM_SCALE_FACTOR_CLAMP = 1.35f;
+  public static final float MAXIMUM_SCALE_FACTOR_CLAMP = 0.15f;
 
   /**
    * Fragment Argument Key for MapboxMapOptions
@@ -135,4 +160,18 @@ public class MapboxConstants {
   public static final String STATE_ATTRIBUTION_ENABLED = "mapbox_atrrEnabled";
   public static final String STATE_LOCATION_CHANGE_ANIMATION_ENABLED = "mapbox_locationChangeAnimationEnabled";
   public static final String STATE_USING_CUSTOM_LOCATION_SOURCE = "mapbox_usingCustomLocationSource";
+  public static final String STATE_LOCATION_VIEW_ENABLED = "mapbox_locViewEnabled";
+  public static final String STATE_LOCATION_VIEW_FOREGROUND_DRAWABLE = "mapbox_locViewForegroundDrawable";
+  public static final String STATE_LOCATION_VIEW_FOREGROUND_BEARING_DRAWABLE = "mapbox_locViewBearingDrawable";
+  public static final String STATE_LOCATION_VIEW_FOREGROUND_TINT_COLOR = "mapbox_locViewForegroundTintColor";
+  public static final String STATE_LOCATION_VIEW_BACKGROUND_DRAWABLE = "mapbox_locViewBackgroundDrawable";
+  public static final String STATE_LOCATION_VIEW_BACKGROUND_OFFSET = "mapbox_locViewBackgroundOffset";
+  public static final String STATE_LOCATION_VIEW_BACKGROUND_TINT_COLOR = "mapbox_locViewBackgroundTintColor";
+  public static final String STATE_LOCATION_VIEW_ACCURACY_ALPHA = "mapbox_locViewAccuracyAlpha";
+  public static final String STATE_LOCATION_VIEW_ACCURACY_TINT_COLOR = "mapbox_locViewAccuracyTintColor";
+  public static final String STATE_LOCATION_VIEW_ACCURACY_THRESHOLD = "mapbox_locViewAccuracyThreshold";
+  public static final String STATE_LOCATION_VIEW_PADDING = "mapbox_locViewPadding";
+  public static final String STATE_DESELECT_MARKER_ON_TAP = "mapbox_deselectMarkerOnTap";
+  public static final String STATE_USER_FOCAL_POINT = "mapbox_userFocalPoint";
+
 }

@@ -4,16 +4,26 @@ workflows:
   version: 2
   default:
     jobs:
+      - nitpick
       - clang-tidy:
           filters:
             branches:
               ignore: master
       - android-debug-arm-v7
       - android-release-all
-      - node4-clang39-release
-      - node6-clang39-release
-      - node6-clang39-debug
-      - linux-clang39-debug
+      - node4-clang39-release:
+          filters:
+            tags:
+              only: /node-.*/
+      - node6-clang39-release:
+          filters:
+            tags:
+              only: /node-.*/
+      - node6-gcc6-debug:
+          filters:
+            tags:
+              only: /node-.*/
+      - linux-clang-3.8-libcxx-debug
       - linux-clang4-sanitize-address
       - linux-clang4-sanitize-undefined
       - linux-clang4-sanitize-thread
@@ -21,6 +31,25 @@ workflows:
       - linux-gcc5-debug-coverage
       - linux-gcc5-release-qt4
       - linux-gcc5-release-qt5
+      - ios-debug
+      #- ios-sanitize-address
+      - ios-sanitize-thread
+      - ios-release:
+          filters:
+            tags:
+              only: /ios-.*/
+            branches:
+              ignore: /.*/
+      - macos-debug
+      - macos-debug-qt5
+      - macos-release-node4:
+          filters:
+            tags:
+              only: /node-.*/
+      - macos-release-node6:
+          filters:
+            tags:
+              only: /node-.*/
 
 step-library:
   - &generate-cache-key
@@ -33,13 +62,22 @@ step-library:
   - &restore-cache
       restore_cache:
         keys:
-          - 'v3/{{ .Environment.CIRCLE_JOB }}/{{ .Branch }}/{{ checksum ".circle-week" }}'
-          - 'v3/{{ .Environment.CIRCLE_JOB }}/master/{{ checksum ".circle-week" }}'
+          - 'v3/{{ .Environment.CIRCLE_JOB }}/{{ arch }}/{{ .Branch }}/{{ checksum ".circle-week" }}'
+          - 'v3/{{ .Environment.CIRCLE_JOB }}/{{ arch }}/master/{{ checksum ".circle-week" }}'
   - &save-cache
       save_cache:
-        key: 'v3/{{ .Environment.CIRCLE_JOB }}/{{ .Branch }}/{{ checksum ".circle-week" }}'
-        paths: [ "node_modules", "/root/.ccache", "mason_packages/.binaries" ]
+        key: 'v3/{{ .Environment.CIRCLE_JOB }}/{{ arch }}/{{ .Branch }}/{{ checksum ".circle-week" }}'
+        paths: [ "node_modules", "/root/.ccache", "~/.ccache", "mason_packages/.binaries" ]
 
+
+  - &restore-gradle-cache
+      restore_cache:
+        keys:
+          - 'v3/{{ checksum "platform/android/gradle/dependencies.gradle" }}/{{ checksum "platform/android/build.gradle" }}/{{ checksum "platform/android/gradle/wrapper/gradle-wrapper.properties" }}'
+  - &save-gradle-cache
+      save_cache:
+        key: 'v3/{{ checksum "platform/android/gradle/dependencies.gradle" }}/{{ checksum "platform/android/build.gradle" }}/{{ checksum "platform/android/gradle/wrapper/gradle-wrapper.properties" }}'
+        paths: [ "/root/.gradle" ]
 
   - &reset-ccache-stats
       run:
@@ -88,14 +126,79 @@ step-library:
       run:
         name: Build qt-test
         command: make qt-test
+  - &build-ios-test
+      run:
+        name: Build ios-test
+        command: make ios-test
+  - &build-ios-integration-test
+      run:
+        name: Build ios-integration-test
+        command: make ios-integration-test
+  - &build-macos-test
+      run:
+        name: Build and run macOS tests
+        command: make run-test
 
 
-  - &run-node-tests
+  - &check-public-symbols
+      run:
+        name: Check public symbols
+        command: make check-public-symbols
+
+
+  - &install-macos-dependencies
+      run:
+        name: Install macOS dependencies
+        command: |
+          brew install cmake
+          brew install ccache
+
+  - &install-macos-node4-dependencies
+      run:
+        name: Install macOS Node@4 dependencies
+        command: |
+          brew install node@4
+          brew link node@4 --force --overwrite
+
+  - &install-macos-node6-dependencies
+      run:
+        name: Install macOS Node@6 dependencies
+        command: |
+          brew install node@6
+          brew link node@6 --force --overwrite
+
+  - &install-macos-qt-dependencies
+      run:
+        name: Install macOS Qt dependencies
+        command: |
+          sudo chown -R $USER /usr/local
+          brew install qt
+          brew link qt --force
+          brew linkapps qt
+          export HOMEBREW_QT5_CELLAR=$(brew --cellar qt)
+          export HOMEBREW_QT5_VERSION=$(brew list --versions qt | rev | cut -d' ' -f1 | rev)
+          ln -s $HOMEBREW_QT5_CELLAR/$HOMEBREW_QT5_VERSION/mkspecs /usr/local/mkspecs
+          ln -s $HOMEBREW_QT5_CELLAR/$HOMEBREW_QT5_VERSION/plugins /usr/local/plugins
+
+  - &run-node-macos-tests
+      run:
+        name: Run node tests
+        command: make test-node
+
+  - &run-node-linux-tests
       run:
         name: Run node tests
         command: |
           xvfb-run --server-args="-screen 0 1024x768x24" \
             logbt -- apitrace trace --api=egl -v make test-node
+
+  - &run-node-linux-tests-recycle-map
+      run:
+        name: Run node tests (recycling the map object)
+        command: |
+          xvfb-run --server-args="-screen 0 1024x768x24" \
+            logbt -- apitrace trace --api=egl -v make test-node-recycle-map
+
   - &run-unit-tests
       run:
         name: Run tests
@@ -115,12 +218,57 @@ step-library:
       store_artifacts:
         path: mapbox-gl-js/test/integration/render-tests/index.html
         destination: render-tests
+  - &upload-render-tests-recycle-map
+      store_artifacts:
+        path: mapbox-gl-js/test/integration/render-tests/index-recycle-map.html
+        destination: render-tests
 
 jobs:
+  nitpick:
+    docker:
+      - image: mbgl/7d2403f42e:base
+    working_directory: /src
+    environment:
+      LIBSYSCONFCPUS: 4
+      JOBS: 4
+      BUILDTYPE: Debug
+    steps:
+      - checkout
+      - *generate-cache-key
+      - *restore-cache
+      - run:
+          name: Initialize submodule
+          command: git submodule update --init mapbox-gl-js
+      - run:
+          name: npm install
+          command: npm install --ignore-scripts
+      - *save-cache
+      - run:
+          name: Verify submodule pin
+          command: scripts/nitpick/submodule-pin.js
+          when: always
+      - run:
+          name: CMake file list generation
+          command: scripts/nitpick/generated-code.js cmake
+          when: always
+      - run:
+          name: Shader code generation
+          command: scripts/nitpick/generated-code.js shader
+          when: always
+      - run:
+          name: Style code generation
+          command: scripts/nitpick/generated-code.js style
+          when: always
+      - run:
+          name: Android code generation
+          command: scripts/nitpick/generated-code.js android
+          when: always
+
+
 # ------------------------------------------------------------------------------
   clang-tidy:
     docker:
-      - image: mbgl/ci:r4-linux-clang-3.9
+      - image: mbgl/7d2403f42e:linux-clang-3.9
     working_directory: /src
     environment:
       LIBSYSCONFCPUS: 4
@@ -142,11 +290,13 @@ jobs:
       - run:
           name: Run Clang checks
           command: make check
+          no_output_timeout: 20m
 
 # ------------------------------------------------------------------------------
   android-debug-arm-v7:
     docker:
-      - image: mbgl/ci@sha256:c34e221294d81da80918d3e9a9df5de795b067e88f86d7c9a5e262763332536e
+      - image: mbgl/7d2403f42e:android-ndk-r16b
+    resource_class: large
     working_directory: /src
     environment:
       LIBSYSCONFCPUS: 4
@@ -157,7 +307,11 @@ jobs:
       - checkout
       - *generate-cache-key
       - *restore-cache
+      - *restore-gradle-cache
       - *reset-ccache-stats
+      - run:
+          name: Check code style
+          command: make android-check
       - run:
           name: Build libmapbox-gl.so for arm-v7
           command: make android-lib-arm-v7
@@ -171,23 +325,13 @@ jobs:
           name: Generate Espresso sanity tests
           command: make test-code-android
       - run:
-          name: Check Java code style
-          command: make android-checkstyle
-      - run:
-          name: Check Android modules for potential bugs (Lint SDK)
-          command: |
-            make android-lint-sdk
-      - run:
-          name: Check Android modules for potential bugs (Lint Test App)
-          command: |
-            make android-lint-test-app
-      - run:
           name: Build Test APK
           command: |
             echo "${MAPBOX_DEVELOPER_CONFIG_XML}" > platform/android/MapboxGLAndroidSDKTestApp/src/main/res/values/developer-config.xml
             make android-ui-test-arm-v7
       - *show-ccache-stats
       - *save-cache
+      - *save-gradle-cache
       - run:
           name: Log in to Google Cloud Platform
           shell: /bin/bash -euo pipefail
@@ -201,23 +345,12 @@ jobs:
           shell: /bin/bash -euo pipefail
           command: |
             gcloud firebase test android models list
-            (gcloud firebase test android run --type instrumentation \
-              --app platform/android/MapboxGLAndroidSDKTestApp/build/outputs/apk/MapboxGLAndroidSDKTestApp-debug.apk \
-              --test platform/android/MapboxGLAndroidSDKTestApp/build/outputs/apk/MapboxGLAndroidSDKTestApp-debug-androidTest.apk \
-              --device-ids shamu --os-version-ids 22 --locales en --orientations portrait --timeout 20m \
-              --test-targets "package com.mapbox.mapboxsdk.testapp.style" 2>&1 | tee firebase.log) || EXIT_CODE=$?
-
-            FIREBASE_TEST_BUCKET=$(sed -n 's|^.*\[https://console.developers.google.com/storage/browser/\([^]]*\).*|gs://\1|p' firebase.log)
-            echo "Downloading from: ${FIREBASE_TEST_BUCKET}"
-            gsutil -m cp -n -R -Z "$FIREBASE_TEST_BUCKET*" platform/android/MapboxGLAndroidSDKTestApp/build/outputs/apk
-
-            echo "Try running ndk-stack on downloaded logcat to symbolicate the stacktraces:"
-            find platform/android/MapboxGLAndroidSDKTestApp/build/outputs/apk -type f -name "logcat" -print0 | \
-              xargs -0 -I '{}' ${ANDROID_NDK_HOME}/ndk-stack -sym build/android-arm-v7/Debug -dump {}
-
-            exit ${EXIT_CODE:-0}
+            gcloud firebase test android run --type instrumentation \
+              --app platform/android/MapboxGLAndroidSDKTestApp/build/outputs/apk/debug/MapboxGLAndroidSDKTestApp-debug.apk \
+              --test platform/android/MapboxGLAndroidSDKTestApp/build/outputs/apk/androidTest/debug/MapboxGLAndroidSDKTestApp-debug-androidTest.apk \
+              --device-ids sailfish --os-version-ids 26 --locales en --orientations portrait --timeout 20m 
       - store_artifacts:
-          path: platform/android/MapboxGLAndroidSDKTestApp/build/outputs/apk
+          path: platform/android/MapboxGLAndroidSDKTestApp/build/outputs/apk/debug
           destination: .
       - store_artifacts:
           path: platform/android/MapboxGLAndroidSDK/build/reports/lint-results.html
@@ -235,7 +368,8 @@ jobs:
 # ------------------------------------------------------------------------------
   android-release-all:
     docker:
-      - image: mbgl/ci@sha256:c34e221294d81da80918d3e9a9df5de795b067e88f86d7c9a5e262763332536e
+      - image: mbgl/7d2403f42e:android-ndk-r16b
+    resource_class: large
     working_directory: /src
     environment:
       LIBSYSCONFCPUS: 4
@@ -246,6 +380,7 @@ jobs:
       - checkout
       - *generate-cache-key
       - *restore-cache
+      - *restore-gradle-cache
       - *reset-ccache-stats
       - run:
           name: Generate Maven credentials
@@ -262,8 +397,9 @@ jobs:
           command: make apackage
       - *show-ccache-stats
       - *save-cache
+      - *save-gradle-cache
       - store_artifacts:
-          path: platform/android/MapboxGLAndroidSDKTestApp/build/outputs/apk
+          path: platform/android/MapboxGLAndroidSDKTestApp/build/outputs/apk/release
           destination: .
       - deploy:
           name: Show statistics
@@ -279,15 +415,14 @@ jobs:
 # ------------------------------------------------------------------------------
   node4-clang39-release:
     docker:
-      - image: mbgl/ci:r4-linux-clang-3.9-node-4
+      - image: mbgl/7d2403f42e:linux-clang-3.9-node-4
     working_directory: /src
     environment:
       LIBSYSCONFCPUS: 4
       JOBS: 4
       BUILDTYPE: RelWithDebInfo
       WITH_EGL: 1
-      PACKAGE_JSON_VERSION: $(node -e "console.log(require('./package.json').version)")
-      PUBLISH: $([[ "${CIRCLE_BRANCH}" == "node-v${PACKAGE_JSON_VERSION}" ]] && echo true)
+      WITH_CXX11ABI: 0
     steps:
       - checkout
       - *generate-cache-key
@@ -296,22 +431,21 @@ jobs:
       - *build-node
       - *show-ccache-stats
       - *save-cache
-      - *run-node-tests
+      - *run-node-linux-tests
       - *publish-node-package
       - *upload-render-tests
 
 # ------------------------------------------------------------------------------
   node6-clang39-release:
     docker:
-      - image: mbgl/ci:r4-linux-clang-3.9
+      - image: mbgl/7d2403f42e:linux-clang-3.9
     working_directory: /src
     environment:
       LIBSYSCONFCPUS: 4
       JOBS: 4
       BUILDTYPE: RelWithDebInfo
       WITH_EGL: 1
-      PACKAGE_JSON_VERSION: $(node -e "console.log(require('./package.json').version)")
-      PUBLISH: $([[ "${CIRCLE_BRANCH}" == "node-v${PACKAGE_JSON_VERSION}" ]] && echo true)
+      WITH_CXX11ABI: 0
     steps:
       - checkout
       - *generate-cache-key
@@ -320,22 +454,21 @@ jobs:
       - *build-node
       - *show-ccache-stats
       - *save-cache
-      - *run-node-tests
+      - *run-node-linux-tests
       - *publish-node-package
       - *upload-render-tests
 
 # ------------------------------------------------------------------------------
-  node6-clang39-debug:
+  node6-gcc6-debug:
     docker:
-      - image: mbgl/ci:r4-linux-clang-3.9
+      - image: mbgl/7d2403f42e:linux-gcc-6
+    resource_class: large
     working_directory: /src
     environment:
       LIBSYSCONFCPUS: 4
       JOBS: 4
       BUILDTYPE: Debug
       WITH_EGL: 1
-      PACKAGE_JSON_VERSION: $(node -e "console.log(require('./package.json').version)")
-      PUBLISH: $([[ "${CIRCLE_BRANCH}" == "node-v${PACKAGE_JSON_VERSION}" ]] && echo true)
     steps:
       - checkout
       - *generate-cache-key
@@ -344,36 +477,34 @@ jobs:
       - *build-node
       - *show-ccache-stats
       - *save-cache
-      - *run-node-tests
+      - *run-node-linux-tests-recycle-map
       - *publish-node-package
-      - *upload-render-tests
+      - *upload-render-tests-recycle-map
 
 # ------------------------------------------------------------------------------
-  linux-clang39-debug:
+  linux-clang-3.8-libcxx-debug:
     docker:
-      - image: mbgl/ci:r4-linux-clang-3.9
+      - image: mbgl/7d2403f42e:linux-clang-3.8-libcxx
     working_directory: /src
     environment:
       LIBSYSCONFCPUS: 4
       JOBS: 4
       BUILDTYPE: Debug
       WITH_EGL: 1
+      WITH_CXX11ABI: 1
     steps:
       - checkout
       - *generate-cache-key
       - *restore-cache
       - *reset-ccache-stats
       - *build-linux
-      - *build-benchmark
-      - *build-test
       - *show-ccache-stats
       - *save-cache
-      - *run-unit-tests
 
 # ------------------------------------------------------------------------------
   linux-clang4-sanitize-address:
     docker:
-      - image: mbgl/ci:r4-linux-clang-4
+      - image: mbgl/7d2403f42e:linux-clang-4
     working_directory: /src
     environment:
       LIBSYSCONFCPUS: 4
@@ -403,7 +534,7 @@ jobs:
 # ------------------------------------------------------------------------------
   linux-clang4-sanitize-undefined:
     docker:
-      - image: mbgl/ci:r4-linux-clang-4
+      - image: mbgl/7d2403f42e:linux-clang-4
     working_directory: /src
     environment:
       LIBSYSCONFCPUS: 4
@@ -433,7 +564,7 @@ jobs:
 # ------------------------------------------------------------------------------
   linux-clang4-sanitize-thread:
     docker:
-      - image: mbgl/ci:r4-linux-clang-4
+      - image: mbgl/7d2403f42e:linux-clang-4
     working_directory: /src
     environment:
       LIBSYSCONFCPUS: 4
@@ -463,11 +594,12 @@ jobs:
 # ------------------------------------------------------------------------------
   linux-gcc4.9-debug:
     docker:
-      - image: mbgl/ci:r4-linux-gcc-4.9
+      - image: mbgl/7d2403f42e:linux-gcc-4.9
+    resource_class: large
     working_directory: /src
     environment:
       LIBSYSCONFCPUS: 4
-      JOBS: 2
+      JOBS: 4
       BUILDTYPE: Debug
       WITH_EGL: 1
       WITH_CXX11ABI: 0
@@ -487,11 +619,12 @@ jobs:
 # ------------------------------------------------------------------------------
   linux-gcc5-debug-coverage:
     docker:
-      - image: mbgl/ci:r4-linux-gcc-5
+      - image: mbgl/7d2403f42e:linux-gcc-5
+    resource_class: large
     working_directory: /src
     environment:
       LIBSYSCONFCPUS: 4
-      JOBS: 2
+      JOBS: 4
       BUILDTYPE: Debug
       WITH_EGL: 1
       WITH_COVERAGE: 1
@@ -514,11 +647,12 @@ jobs:
 # ------------------------------------------------------------------------------
   linux-gcc5-release-qt4:
     docker:
-      - image: mbgl/ci:r4-linux-gcc-5-qt-4
+      - image: mbgl/7d2403f42e:linux-gcc-5-qt-4
+    resource_class: large
     working_directory: /src
     environment:
       LIBSYSCONFCPUS: 4
-      JOBS: 2 # OOM, causing the compiler to crash.
+      JOBS: 4
       BUILDTYPE: Release
       GTEST_OUTPUT: xml
       LD_PRELOAD: /usr/lib/x86_64-linux-gnu/libjemalloc.so
@@ -541,11 +675,12 @@ jobs:
 # ------------------------------------------------------------------------------
   linux-gcc5-release-qt5:
     docker:
-      - image: mbgl/ci:r4-linux-gcc-5-qt-5
+      - image: mbgl/7d2403f42e:linux-gcc-5-qt-5.9
+    resource_class: large
     working_directory: /src
     environment:
       LIBSYSCONFCPUS: 4
-      JOBS: 2 # OOM, causing the compiler to crash.
+      JOBS: 4
       BUILDTYPE: Release
       WITH_QT_I18N: 1
     steps:
@@ -566,4 +701,189 @@ jobs:
             JOBS: 1 # https://github.com/mapbox/mapbox-gl-native/issues/9108
           command: |
             xvfb-run --server-args="-screen 0 1024x768x24" \
-              scripts/valgrind.sh build/qt-linux-x86_64/Release/mbgl-test --gtest_filter=-*.Load --gtest_filter=-Memory.Vector
+              build/qt-linux-x86_64/Release/mbgl-test --gtest_filter=-*.Load --gtest_filter=-Memory.Vector
+
+# ------------------------------------------------------------------------------
+  ios-debug:
+    macos:
+      xcode: "9.2.0"
+    environment:
+      BUILDTYPE: Debug
+      HOMEBREW_NO_AUTO_UPDATE: 1
+    steps:
+      - checkout
+      - *install-macos-dependencies
+      - *generate-cache-key
+      - *restore-cache
+      - *reset-ccache-stats
+      - *build-ios-test
+      - *build-ios-integration-test
+      - *check-public-symbols
+      - run:
+          name: Lint plist files
+          command: make ios-lint
+      - run:
+          name: Nitpick Darwin code generation
+          command: scripts/nitpick/generated-code.js darwin
+      - *show-ccache-stats
+      - *save-cache
+
+# ------------------------------------------------------------------------------
+  ios-sanitize-address:
+    macos:
+      xcode: "9.2.0"
+    environment:
+      BUILDTYPE: Debug
+      HOMEBREW_NO_AUTO_UPDATE: 1
+    steps:
+      - checkout
+      - *install-macos-dependencies
+      - *generate-cache-key
+      - *restore-cache
+      - *reset-ccache-stats
+      - run:
+          name: Build and run SDK unit tests with address sanitizer
+          command: make ios-sanitize-address
+      - *show-ccache-stats
+      - *save-cache
+
+# ------------------------------------------------------------------------------
+  ios-sanitize-thread:
+    macos:
+      xcode: "9.2.0"
+    environment:
+      BUILDTYPE: Debug
+      HOMEBREW_NO_AUTO_UPDATE: 1
+    steps:
+      - checkout
+      - *install-macos-dependencies
+      - *generate-cache-key
+      - *restore-cache
+      - *reset-ccache-stats
+      - run:
+          name: Build and run SDK unit tests with thread sanitizer
+          command: make ios-sanitize-thread
+      - *show-ccache-stats
+      - *save-cache
+
+# ------------------------------------------------------------------------------
+  ios-release:
+    macos:
+      xcode: "9.2.0"
+    environment:
+      HOMEBREW_NO_AUTO_UPDATE: 1
+    shell: /bin/bash --login -eo pipefail
+    steps:
+      - checkout
+      - *install-macos-dependencies
+      - run:
+          name: Install packaging dependencies
+          command: |
+            echo "ruby-2.3" > ~/.ruby-version
+            sudo gem install jazzy --no-document
+            brew install awscli wget
+      - *generate-cache-key
+      - *restore-cache
+      - *reset-ccache-stats
+      - run:
+          name: Build, package, and upload iOS release
+          command: |
+            export VERSION_TAG=${CIRCLE_TAG}
+            export GITHUB_TOKEN=${DANGER_GITHUB_API_TOKEN}
+            platform/ios/scripts/deploy-packages.sh
+      - *show-ccache-stats
+      - *save-cache
+
+# ------------------------------------------------------------------------------
+  macos-debug:
+    macos:
+      xcode: "9.2.0"
+    environment:
+      BUILDTYPE: Debug
+      HOMEBREW_NO_AUTO_UPDATE: 1
+    steps:
+      - checkout
+      - *install-macos-dependencies
+      - *generate-cache-key
+      - *restore-cache
+      - *reset-ccache-stats
+      - *build-macos-test
+      - *check-public-symbols
+      - run:
+          name: Lint plist files
+          command: make macos-lint
+      - run:
+          name: Nitpick Darwin code generation
+          command: scripts/nitpick/generated-code.js darwin
+      - *show-ccache-stats
+      - *save-cache
+      - store_artifacts:
+          path: test/fixtures
+          destination: test/fixtures
+
+# ------------------------------------------------------------------------------
+  macos-debug-qt5:
+    macos:
+      xcode: "9.2.0"
+    environment:
+      BUILDTYPE: Debug
+      HOMEBREW_NO_AUTO_UPDATE: 1
+    steps:
+      - checkout
+      - *install-macos-dependencies
+      - *install-macos-qt-dependencies
+      - *generate-cache-key
+      - *restore-cache
+      - *reset-ccache-stats
+      - *build-qt-app
+      - *build-qt-test
+      - run:
+          name: Run qt-test
+          command: make run-qt-test
+      - *show-ccache-stats
+      - *save-cache
+      - store_artifacts:
+          path: test/fixtures
+          destination: test/fixtures
+
+# ------------------------------------------------------------------------------
+  macos-release-node4:
+    macos:
+      xcode: "9.2.0"
+    environment:
+      BUILDTYPE: RelWithDebInfo
+      HOMEBREW_NO_AUTO_UPDATE: 1
+    steps:
+      - checkout
+      - *install-macos-dependencies
+      - *install-macos-node4-dependencies
+      - *generate-cache-key
+      - *restore-cache
+      - *reset-ccache-stats
+      - *build-node
+      - *show-ccache-stats
+      - *save-cache
+      - *run-node-macos-tests
+      - *publish-node-package
+      - *upload-render-tests
+
+# ------------------------------------------------------------------------------
+  macos-release-node6:
+    macos:
+      xcode: "9.2.0"
+    environment:
+      BUILDTYPE: RelWithDebInfo
+      HOMEBREW_NO_AUTO_UPDATE: 1
+    steps:
+      - checkout
+      - *install-macos-dependencies
+      - *install-macos-node6-dependencies
+      - *generate-cache-key
+      - *restore-cache
+      - *reset-ccache-stats
+      - *build-node
+      - *show-ccache-stats
+      - *save-cache
+      - *run-node-macos-tests
+      - *publish-node-package
+      - *upload-render-tests

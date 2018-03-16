@@ -32,20 +32,21 @@ void RenderVectorSource::update(Immutable<style::Source::Impl> baseImpl_,
 
     enabled = needsRendering;
 
-    optional<Tileset> tileset = impl().getTileset();
+    optional<Tileset> _tileset = impl().getTileset();
 
-    if (!tileset) {
-        return;
-    }
-
-    if (tileURLTemplates != tileset->tiles) {
-        tileURLTemplates = tileset->tiles;
+    if (tileset != _tileset) {
+        tileset = _tileset;
 
         // TODO: this removes existing buckets, and will cause flickering.
         // Should instead refresh tile data in place.
         tilePyramid.tiles.clear();
         tilePyramid.renderTiles.clear();
         tilePyramid.cache.clear();
+    }
+    // Allow clearing the tile pyramid first, before the early return in case
+    //  the new tileset is not yet available or has an error in loading
+    if (!_tileset) {
+        return;
     }
 
     tilePyramid.update(layers,
@@ -55,6 +56,7 @@ void RenderVectorSource::update(Immutable<style::Source::Impl> baseImpl_,
                        SourceType::Vector,
                        util::tileSize,
                        tileset->zoomRange,
+                       tileset->bounds,
                        [&] (const OverscaledTileID& tileID) {
                            return std::make_unique<VectorTile>(tileID, impl().id, parameters, *tileset);
                        });
@@ -76,17 +78,18 @@ std::vector<std::reference_wrapper<RenderTile>> RenderVectorSource::getRenderTil
 std::unordered_map<std::string, std::vector<Feature>>
 RenderVectorSource::queryRenderedFeatures(const ScreenLineString& geometry,
                                           const TransformState& transformState,
-                                          const RenderStyle& style,
-                                          const RenderedQueryOptions& options) const {
-    return tilePyramid.queryRenderedFeatures(geometry, transformState, style, options);
+                                          const std::vector<const RenderLayer*>& layers,
+                                          const RenderedQueryOptions& options,
+                                          const CollisionIndex& collisionIndex) const {
+    return tilePyramid.queryRenderedFeatures(geometry, transformState, layers, options, collisionIndex);
 }
 
 std::vector<Feature> RenderVectorSource::querySourceFeatures(const SourceQueryOptions& options) const {
     return tilePyramid.querySourceFeatures(options);
 }
 
-void RenderVectorSource::onLowMemory() {
-    tilePyramid.onLowMemory();
+void RenderVectorSource::reduceMemoryUse() {
+    tilePyramid.reduceMemoryUse();
 }
 
 void RenderVectorSource::dumpDebugLogs() const {

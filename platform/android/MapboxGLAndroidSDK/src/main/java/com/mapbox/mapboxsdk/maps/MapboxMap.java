@@ -6,7 +6,6 @@ import android.graphics.PointF;
 import android.graphics.RectF;
 import android.location.Location;
 import android.os.Bundle;
-import android.os.Handler;
 import android.support.annotation.FloatRange;
 import android.support.annotation.IntRange;
 import android.support.annotation.NonNull;
@@ -17,6 +16,14 @@ import android.text.TextUtils;
 import android.view.View;
 import android.view.ViewGroup;
 
+import com.mapbox.android.core.location.LocationEngine;
+import com.mapbox.android.gestures.AndroidGesturesManager;
+import com.mapbox.android.gestures.MoveGestureDetector;
+import com.mapbox.android.gestures.RotateGestureDetector;
+import com.mapbox.android.gestures.ShoveGestureDetector;
+import com.mapbox.android.gestures.StandardScaleGestureDetector;
+import com.mapbox.geojson.Feature;
+import com.mapbox.geojson.Geometry;
 import com.mapbox.mapboxsdk.annotations.Annotation;
 import com.mapbox.mapboxsdk.annotations.BaseMarkerOptions;
 import com.mapbox.mapboxsdk.annotations.BaseMarkerViewOptions;
@@ -42,10 +49,9 @@ import com.mapbox.mapboxsdk.style.layers.Filter;
 import com.mapbox.mapboxsdk.style.layers.Layer;
 import com.mapbox.mapboxsdk.style.light.Light;
 import com.mapbox.mapboxsdk.style.sources.Source;
-import com.mapbox.services.android.telemetry.location.LocationEngine;
-import com.mapbox.services.commons.geojson.Feature;
 
 import java.lang.reflect.ParameterizedType;
+import java.util.HashMap;
 import java.util.List;
 
 import timber.log.Timber;
@@ -72,12 +78,13 @@ public final class MapboxMap {
   private final MyLocationViewSettings myLocationViewSettings;
   private final CameraChangeDispatcher cameraChangeDispatcher;
 
-  private final OnRegisterTouchListener onRegisterTouchListener;
+  private final OnGesturesManagerInteractionListener onGesturesManagerInteractionListener;
 
   private MapboxMap.OnFpsChangedListener onFpsChangedListener;
+  private PointF focalPoint;
 
   MapboxMap(NativeMapView map, Transform transform, UiSettings ui, TrackingSettings tracking,
-            MyLocationViewSettings myLocationView, Projection projection, OnRegisterTouchListener listener,
+            MyLocationViewSettings myLocationView, Projection projection, OnGesturesManagerInteractionListener listener,
             AnnotationManager annotations, CameraChangeDispatcher cameraChangeDispatcher) {
     this.nativeMapView = map;
     this.uiSettings = ui;
@@ -86,7 +93,7 @@ public final class MapboxMap {
     this.myLocationViewSettings = myLocationView;
     this.annotationManager = annotations.bind(this);
     this.transform = transform;
-    this.onRegisterTouchListener = listener;
+    this.onGesturesManagerInteractionListener = listener;
     this.cameraChangeDispatcher = cameraChangeDispatcher;
   }
 
@@ -133,6 +140,7 @@ public final class MapboxMap {
     outState.putString(MapboxConstants.STATE_STYLE_URL, nativeMapView.getStyleUrl());
     trackingSettings.onSaveInstanceState(outState);
     uiSettings.onSaveInstanceState(outState);
+    myLocationViewSettings.onSaveInstanceState(outState);
   }
 
   /**
@@ -143,16 +151,13 @@ public final class MapboxMap {
   void onRestoreInstanceState(Bundle savedInstanceState) {
     final CameraPosition cameraPosition = savedInstanceState.getParcelable(MapboxConstants.STATE_CAMERA_POSITION);
 
+    myLocationViewSettings.onRestoreInstanceState(savedInstanceState);
     uiSettings.onRestoreInstanceState(savedInstanceState);
     trackingSettings.onRestoreInstanceState(savedInstanceState);
 
     if (cameraPosition != null) {
-      easeCamera(CameraUpdateFactory.newCameraPosition(
-        new CameraPosition.Builder(cameraPosition).build()),
-        0,
-        false,
-        null,
-        !trackingSettings.isLocationTrackingDisabled()
+      moveCamera(CameraUpdateFactory.newCameraPosition(
+        new CameraPosition.Builder(cameraPosition).build())
       );
     }
 
@@ -465,6 +470,13 @@ public final class MapboxMap {
   }
 
   /**
+   * Adds an images to be used in the map's style
+   */
+  public void addImages(@NonNull HashMap<String, Bitmap> images) {
+    nativeMapView.addImages(images);
+  }
+
+  /**
    * Removes an image from the map's style
    *
    * @param name the name of the image to remove
@@ -513,8 +525,9 @@ public final class MapboxMap {
    * Sets the maximum zoom level the map can be displayed at.
    * </p>
    * <p>
-   *   The default maximum zoomn level is 22. The upper bound for this value is 25.5.
+   * The default maximum zoomn level is 22. The upper bound for this value is 25.5.
    * </p>
+   *
    * @param maxZoom The new maximum zoom level.
    */
   public void setMaxZoomPreference(@FloatRange(from = MapboxConstants.MINIMUM_ZOOM,
@@ -555,7 +568,7 @@ public final class MapboxMap {
    *
    * @return the TrackingSettings asssociated with this map
    * @deprecated use location layer plugin from
-   * https://github.com/mapbox/mapbox-plugins-android/tree/master/plugins/locationlayer instead.
+   * https://github.com/mapbox/mapbox-plugins-android/tree/master/plugin-locationlayer instead.
    */
   @Deprecated
   public TrackingSettings getTrackingSettings() {
@@ -571,7 +584,7 @@ public final class MapboxMap {
    *
    * @return the MyLocationViewSettings associated with this map
    * @deprecated use location layer plugin from
-   * https://github.com/mapbox/mapbox-plugins-android/tree/master/plugins/locationlayer instead.
+   * https://github.com/mapbox/mapbox-plugins-android/tree/master/plugin-locationlayer instead.
    */
   @Deprecated
   public MyLocationViewSettings getMyLocationViewSettings() {
@@ -609,6 +622,47 @@ public final class MapboxMap {
   //
   // Camera API
   //
+
+  /**
+   * Moves the center of the screen to a latitude and longitude specified by a LatLng object. This centers the
+   * camera on the LatLng object.
+   *
+   * @param latLng Target location to change to
+   */
+  public void setLatLng(@NonNull LatLng latLng) {
+    nativeMapView.setLatLng(latLng);
+  }
+
+  /**
+   * Moves the camera viewpoint to a particular zoom level.
+   *
+   * @param zoom Zoom level to change to
+   */
+  public void setZoom(@FloatRange(from = MapboxConstants.MINIMUM_ZOOM, to = MapboxConstants.MAXIMUM_ZOOM) double zoom) {
+    if (focalPoint == null) {
+      focalPoint = new PointF(nativeMapView.getWidth() / 2, nativeMapView.getHeight() / 2);
+    }
+    nativeMapView.setZoom(zoom, focalPoint, 0);
+  }
+
+  /**
+   * Moves the camera viewpoint angle to a particular angle in degrees.
+   *
+   * @param tilt Tilt angle to change to
+   */
+  public void setTilt(@FloatRange(from = MapboxConstants.MINIMUM_TILT, to = MapboxConstants.MAXIMUM_TILT) double tilt) {
+    nativeMapView.setPitch(tilt, 0);
+  }
+
+  /**
+   * Moves the camera viewpoint direction to a particular angle in degrees.
+   *
+   * @param bearing Direction angle to change to
+   */
+  public void setBearing(@FloatRange(from = MapboxConstants.MINIMUM_DIRECTION, to = MapboxConstants.MAXIMUM_DIRECTION)
+                           double bearing) {
+    nativeMapView.setBearing(bearing);
+  }
 
   /**
    * Cancels ongoing animations.
@@ -662,15 +716,7 @@ public final class MapboxMap {
    * @param callback the callback to be invoked when an animation finishes or is canceled
    */
   public final void moveCamera(final CameraUpdate update, final MapboxMap.CancelableCallback callback) {
-    new Handler().post(new Runnable() {
-      @Override
-      public void run() {
-        transform.moveCamera(MapboxMap.this, update, callback);
-        // MapChange.REGION_DID_CHANGE_ANIMATED is not called for `jumpTo`
-        // invalidate camera position to provide OnCameraChange event.
-        invalidateCameraPosition();
-      }
-    });
+    transform.moveCamera(MapboxMap.this, update, callback);
   }
 
   /**
@@ -790,12 +836,11 @@ public final class MapboxMap {
    */
   public final void easeCamera(final CameraUpdate update, final int durationMs, final boolean easingInterpolator,
                                final MapboxMap.CancelableCallback callback, final boolean isDismissable) {
-    new Handler().post(new Runnable() {
-      @Override
-      public void run() {
-        transform.easeCamera(MapboxMap.this, update, durationMs, easingInterpolator, callback, isDismissable);
-      }
-    });
+
+    if (durationMs <= 0) {
+      throw new IllegalArgumentException("Null duration passed into easeCamera");
+    }
+    transform.easeCamera(MapboxMap.this, update, durationMs, easingInterpolator, callback, isDismissable);
   }
 
   /**
@@ -862,12 +907,11 @@ public final class MapboxMap {
    */
   public final void animateCamera(final CameraUpdate update, final int durationMs,
                                   final MapboxMap.CancelableCallback callback) {
-    new Handler().post(new Runnable() {
-      @Override
-      public void run() {
-        transform.animateCamera(MapboxMap.this, update, durationMs, callback);
-      }
-    });
+    if (durationMs <= 0) {
+      throw new IllegalArgumentException("Null duration passed into animageCamera");
+    }
+
+    transform.animateCamera(MapboxMap.this, update, durationMs, callback);
   }
 
   /**
@@ -1173,8 +1217,11 @@ public final class MapboxMap {
    *
    * @param markerOptions A marker options object that defines how to render the marker
    * @return The {@code Marker} that was added to the map
+   * @deprecated Use a {@link com.mapbox.mapboxsdk.style.layers.SymbolLayer} instead. An example of converting Android
+   * SDK views to be used as a symbol see https://github.com/mapbox/mapbox-gl-native/blob/68f32bc104422207c64da8d90e8411b138d87f04/platform/android/MapboxGLAndroidSDKTestApp/src/main/java/com/mapbox/mapboxsdk/testapp/activity/style/SymbolGeneratorActivity.java
    */
   @NonNull
+  @Deprecated
   public MarkerView addMarker(@NonNull BaseMarkerViewOptions markerOptions) {
     return annotationManager.addMarker(markerOptions, this, null);
   }
@@ -1189,7 +1236,10 @@ public final class MapboxMap {
    * @param markerOptions             A marker options object that defines how to render the marker
    * @param onMarkerViewAddedListener Callback invoked when the View has been added to the map
    * @return The {@code Marker} that was added to the map
+   * @deprecated Use a {@link com.mapbox.mapboxsdk.style.layers.SymbolLayer} instead. An example of converting Android
+   * SDK views to be used as a symbol see https://github.com/mapbox/mapbox-gl-native/blob/68f32bc104422207c64da8d90e8411b138d87f04/platform/android/MapboxGLAndroidSDKTestApp/src/main/java/com/mapbox/mapboxsdk/testapp/activity/style/SymbolGeneratorActivity.java
    */
+  @Deprecated
   @NonNull
   public MarkerView addMarker(@NonNull BaseMarkerViewOptions markerOptions,
                               final MarkerViewManager.OnMarkerViewAddedListener onMarkerViewAddedListener) {
@@ -1205,8 +1255,11 @@ public final class MapboxMap {
    *
    * @param markerViewOptions A list of markerView options objects that defines how to render the markers
    * @return A list of the {@code MarkerView}s that were added to the map
+   * @deprecated Use a {@link com.mapbox.mapboxsdk.style.layers.SymbolLayer} instead. An example of converting Android
+   * SDK views to be used as a symbol see https://github.com/mapbox/mapbox-gl-native/blob/68f32bc104422207c64da8d90e8411b138d87f04/platform/android/MapboxGLAndroidSDKTestApp/src/main/java/com/mapbox/mapboxsdk/testapp/activity/style/SymbolGeneratorActivity.java
    */
   @NonNull
+  @Deprecated
   public List<MarkerView> addMarkerViews(@NonNull List<? extends
     BaseMarkerViewOptions> markerViewOptions) {
     return annotationManager.addMarkerViews(markerViewOptions, this);
@@ -1217,8 +1270,11 @@ public final class MapboxMap {
    *
    * @param rect the rectangular area on the map to query for markerViews
    * @return A list of the markerViews that were found in the rectangle
+   * @deprecated Use a {@link com.mapbox.mapboxsdk.style.layers.SymbolLayer} instead. An example of converting Android
+   * SDK views to be used as a symbol see https://github.com/mapbox/mapbox-gl-native/blob/68f32bc104422207c64da8d90e8411b138d87f04/platform/android/MapboxGLAndroidSDKTestApp/src/main/java/com/mapbox/mapboxsdk/testapp/activity/style/SymbolGeneratorActivity.java
    */
   @NonNull
+  @Deprecated
   public List<MarkerView> getMarkerViewsInRect(@NonNull RectF rect) {
     return annotationManager.getMarkerViewsInRect(rect);
   }
@@ -1611,6 +1667,30 @@ public final class MapboxMap {
     return cameraPosition;
   }
 
+  /**
+   * Get a camera position that fits a provided shape with a given bearing and padding.
+   *
+   * @param geometry the geometry to constrain the map with
+   * @param bearing  the bearing at which to compute the geometry's bounds
+   * @param padding  the padding to apply to the bounds
+   * @return the camera position that fits the bounds and padding
+   */
+  public CameraPosition getCameraForGeometry(Geometry geometry, double bearing, int[] padding) {
+    // calculate and set additional bounds padding
+    int[] mapPadding = getPadding();
+    for (int i = 0; i < padding.length; i++) {
+      padding[i] = mapPadding[i] + padding[i];
+    }
+    projection.setContentPadding(padding, myLocationViewSettings.getPadding());
+
+    // get padded camera position from LatLngBounds
+    CameraPosition cameraPosition = nativeMapView.getCameraForGeometry(geometry, bearing);
+
+    // reset map padding
+    setPadding(mapPadding);
+    return cameraPosition;
+  }
+
   //
   // Padding
   //
@@ -1670,36 +1750,120 @@ public final class MapboxMap {
    * Sets a callback that is invoked when camera movement has ended.
    *
    * @param listener the listener to notify
+   * @deprecated use {@link #addOnCameraIdleListener(OnCameraIdleListener)}
+   * and {@link #removeOnCameraIdleListener(OnCameraIdleListener)} instead
    */
+  @Deprecated
   public void setOnCameraIdleListener(@Nullable OnCameraIdleListener listener) {
     cameraChangeDispatcher.setOnCameraIdleListener(listener);
+  }
+
+  /**
+   * Adds a callback that is invoked when camera movement has ended.
+   *
+   * @param listener the listener to notify
+   */
+  public void addOnCameraIdleListener(@Nullable OnCameraIdleListener listener) {
+    cameraChangeDispatcher.addOnCameraIdleListener(listener);
+  }
+
+  /**
+   * Removes a callback that is invoked when camera movement has ended.
+   *
+   * @param listener the listener to remove
+   */
+  public void removeOnCameraIdleListener(@Nullable OnCameraIdleListener listener) {
+    cameraChangeDispatcher.removeOnCameraIdleListener(listener);
   }
 
   /**
    * Sets a callback that is invoked when camera movement was cancelled.
    *
    * @param listener the listener to notify
+   * @deprecated use {@link #addOnCameraMoveCancelListener(OnCameraMoveCanceledListener)} and
+   * {@link #removeOnCameraMoveCancelListener(OnCameraMoveCanceledListener)} instead
    */
+  @Deprecated
   public void setOnCameraMoveCancelListener(@Nullable OnCameraMoveCanceledListener listener) {
     cameraChangeDispatcher.setOnCameraMoveCanceledListener(listener);
+  }
+
+  /**
+   * Adds a callback that is invoked when camera movement was cancelled.
+   *
+   * @param listener the listener to notify
+   */
+  public void addOnCameraMoveCancelListener(@Nullable OnCameraMoveCanceledListener listener) {
+    cameraChangeDispatcher.addOnCameraMoveCancelListener(listener);
+  }
+
+  /**
+   * Removes a callback that is invoked when camera movement was cancelled.
+   *
+   * @param listener the listener to remove
+   */
+  public void removeOnCameraMoveCancelListener(@Nullable OnCameraMoveCanceledListener listener) {
+    cameraChangeDispatcher.removeOnCameraMoveCancelListener(listener);
   }
 
   /**
    * Sets a callback that is invoked when camera movement has started.
    *
    * @param listener the listener to notify
+   * @deprecated use {@link #addOnCameraMoveStartedListener(OnCameraMoveStartedListener)} and
+   * {@link #removeOnCameraMoveStartedListener(OnCameraMoveStartedListener)} instead
    */
+  @Deprecated
   public void setOnCameraMoveStartedListener(@Nullable OnCameraMoveStartedListener listener) {
     cameraChangeDispatcher.setOnCameraMoveStartedListener(listener);
+  }
+
+  /**
+   * Adds a callback that is invoked when camera movement has started.
+   *
+   * @param listener the listener to notify
+   */
+  public void addOnCameraMoveStartedListener(@Nullable OnCameraMoveStartedListener listener) {
+    cameraChangeDispatcher.addOnCameraMoveStartedListener(listener);
+  }
+
+  /**
+   * Removes a callback that is invoked when camera movement has started.
+   *
+   * @param listener the listener to remove
+   */
+  public void removeOnCameraMoveStartedListener(@Nullable OnCameraMoveStartedListener listener) {
+    cameraChangeDispatcher.removeOnCameraMoveStartedListener(listener);
   }
 
   /**
    * Sets a callback that is invoked when camera position changes.
    *
    * @param listener the listener to notify
+   * @deprecated use {@link #addOnCameraMoveListener(OnCameraMoveListener)} and
+   * {@link #removeOnCameraMoveListener(OnCameraMoveListener)}instead
    */
+  @Deprecated
   public void setOnCameraMoveListener(@Nullable OnCameraMoveListener listener) {
     cameraChangeDispatcher.setOnCameraMoveListener(listener);
+  }
+
+  /**
+   * Adds a callback that is invoked when camera position changes.
+   *
+   * @param listener the listener to notify
+   */
+  public void addOnCameraMoveListener(@Nullable OnCameraMoveListener listener) {
+    cameraChangeDispatcher.addOnCameraMoveListener(listener);
+  }
+
+  /**
+   * Removes a callback that is invoked when camera position changes.
+   *
+   * @param listener the listener to remove
+   */
+  public void removeOnCameraMoveListener(@Nullable OnCameraMoveListener listener) {
+    cameraChangeDispatcher.removeOnCameraMoveListener(listener);
   }
 
   /**
@@ -1710,6 +1874,7 @@ public final class MapboxMap {
    */
   public void setOnFpsChangedListener(@Nullable OnFpsChangedListener listener) {
     onFpsChangedListener = listener;
+    nativeMapView.setOnFpsChangedListener(listener);
   }
 
   // used by MapView
@@ -1722,9 +1887,31 @@ public final class MapboxMap {
    *
    * @param listener The callback that's invoked when the map is scrolled.
    *                 To unset the callback, use null.
+   * @deprecated Use {@link #addOnScrollListener(OnScrollListener)} instead.
    */
+  @Deprecated
   public void setOnScrollListener(@Nullable OnScrollListener listener) {
-    onRegisterTouchListener.onRegisterScrollListener(listener);
+    onGesturesManagerInteractionListener.onSetScrollListener(listener);
+  }
+
+  /**
+   * Adds a callback that's invoked when the map is scrolled.
+   *
+   * @param listener The callback that's invoked when the map is scrolled.
+   *                 To unset the callback, use null.
+   */
+  public void addOnScrollListener(@Nullable OnScrollListener listener) {
+    onGesturesManagerInteractionListener.onAddScrollListener(listener);
+  }
+
+  /**
+   * Removes a callback that's invoked when the map is scrolled.
+   *
+   * @param listener The callback that's invoked when the map is scrolled.
+   *                 To unset the callback, use null.
+   */
+  public void removeOnScrollListener(@Nullable OnScrollListener listener) {
+    onGesturesManagerInteractionListener.onRemoveScrollListener(listener);
   }
 
   /**
@@ -1732,9 +1919,122 @@ public final class MapboxMap {
    *
    * @param listener The callback that's invoked when the map is flinged.
    *                 To unset the callback, use null.
+   * @deprecated Use {@link #addOnFlingListener(OnFlingListener)} instead.
    */
+  @Deprecated
   public void setOnFlingListener(@Nullable OnFlingListener listener) {
-    onRegisterTouchListener.onRegisterFlingListener(listener);
+    onGesturesManagerInteractionListener.onSetFlingListener(listener);
+  }
+
+  /**
+   * Adds a callback that's invoked when the map is flinged.
+   *
+   * @param listener The callback that's invoked when the map is flinged.
+   *                 To unset the callback, use null.
+   */
+  public void addOnFlingListener(@Nullable OnFlingListener listener) {
+    onGesturesManagerInteractionListener.onAddFlingListener(listener);
+  }
+
+  /**
+   * Removes a callback that's invoked when the map is flinged.
+   *
+   * @param listener The callback that's invoked when the map is flinged.
+   *                 To unset the callback, use null.
+   */
+  public void removeOnFlingListener(@Nullable OnFlingListener listener) {
+    onGesturesManagerInteractionListener.onRemoveFlingListener(listener);
+  }
+
+  /**
+   * Adds a callback that's invoked when the map is moved.
+   *
+   * @param listener The callback that's invoked when the map is moved.
+   */
+  public void addOnMoveListener(OnMoveListener listener) {
+    onGesturesManagerInteractionListener.onAddMoveListener(listener);
+  }
+
+  /**
+   * Removes a callback that's invoked when the map is moved.
+   *
+   * @param listener The callback that's invoked when the map is moved.
+   */
+  public void removeOnMoveListener(OnMoveListener listener) {
+    onGesturesManagerInteractionListener.onRemoveMoveListener(listener);
+  }
+
+  /**
+   * Adds a callback that's invoked when the map is rotated.
+   *
+   * @param listener The callback that's invoked when the map is rotated.
+   */
+  public void addOnRotateListener(OnRotateListener listener) {
+    onGesturesManagerInteractionListener.onAddRotateListener(listener);
+  }
+
+  /**
+   * Removes a callback that's invoked when the map is rotated.
+   *
+   * @param listener The callback that's invoked when the map is rotated.
+   */
+  public void removeOnRotateListener(OnRotateListener listener) {
+    onGesturesManagerInteractionListener.onRemoveRotateListener(listener);
+  }
+
+  /**
+   * Adds a callback that's invoked when the map is scaled.
+   *
+   * @param listener The callback that's invoked when the map is scaled.
+   */
+  public void addOnScaleListener(OnScaleListener listener) {
+    onGesturesManagerInteractionListener.onAddScaleListener(listener);
+  }
+
+  /**
+   * Removes a callback that's invoked when the map is scaled.
+   *
+   * @param listener The callback that's invoked when the map is scaled.
+   */
+  public void removeOnScaleListener(OnScaleListener listener) {
+    onGesturesManagerInteractionListener.onRemoveScaleListener(listener);
+  }
+
+  /**
+   * Adds a callback that's invoked when the map is tilted.
+   *
+   * @param listener The callback that's invoked when the map is tilted.
+   */
+  public void addOnShoveListener(OnShoveListener listener) {
+    onGesturesManagerInteractionListener.onAddShoveListener(listener);
+  }
+
+  /**
+   * Remove a callback that's invoked when the map is tilted.
+   *
+   * @param listener The callback that's invoked when the map is tilted.
+   */
+  public void removeOnShoveListener(OnShoveListener listener) {
+    onGesturesManagerInteractionListener.onRemoveShoveListener(listener);
+  }
+
+  /**
+   * Sets a custom {@link AndroidGesturesManager} to handle {@link android.view.MotionEvent}s registered by the map.
+   *
+   * @param androidGesturesManager Gestures manager that interprets gestures based on the motion events.
+   * @see <a href="https://github.com/mapbox/mapbox-gestures-android">mapbox-gestures-android library</a>
+   */
+  public void setGesturesManager(AndroidGesturesManager androidGesturesManager) {
+    onGesturesManagerInteractionListener.setGesturesManager(androidGesturesManager);
+  }
+
+  /**
+   * Get current {@link AndroidGesturesManager} that handles {@link android.view.MotionEvent}s registered by the map.
+   *
+   * @return Current gestures manager.
+   */
+  public AndroidGesturesManager getGesturesManager() {
+    return onGesturesManagerInteractionListener.getGesturesManager();
   }
 
   /**
@@ -1742,9 +2042,31 @@ public final class MapboxMap {
    *
    * @param listener The callback that's invoked when the user clicks on the map view.
    *                 To unset the callback, use null.
+   * @deprecated Use {@link #addOnMapClickListener(OnMapClickListener)} instead.
    */
+  @Deprecated
   public void setOnMapClickListener(@Nullable OnMapClickListener listener) {
-    onRegisterTouchListener.onRegisterMapClickListener(listener);
+    onGesturesManagerInteractionListener.onSetMapClickListener(listener);
+  }
+
+  /**
+   * Adds a callback that's invoked when the user clicks on the map view.
+   *
+   * @param listener The callback that's invoked when the user clicks on the map view.
+   *                 To unset the callback, use null.
+   */
+  public void addOnMapClickListener(@Nullable OnMapClickListener listener) {
+    onGesturesManagerInteractionListener.onAddMapClickListener(listener);
+  }
+
+  /**
+   * Removes a callback that's invoked when the user clicks on the map view.
+   *
+   * @param listener The callback that's invoked when the user clicks on the map view.
+   *                 To unset the callback, use null.
+   */
+  public void removeOnMapClickListener(@Nullable OnMapClickListener listener) {
+    onGesturesManagerInteractionListener.onRemoveMapClickListener(listener);
   }
 
   /**
@@ -1752,9 +2074,31 @@ public final class MapboxMap {
    *
    * @param listener The callback that's invoked when the user long clicks on the map view.
    *                 To unset the callback, use null.
+   * @deprecated Use {@link #addOnMapLongClickListener(OnMapLongClickListener)} instead.
    */
+  @Deprecated
   public void setOnMapLongClickListener(@Nullable OnMapLongClickListener listener) {
-    onRegisterTouchListener.onRegisterMapLongClickListener(listener);
+    onGesturesManagerInteractionListener.onSetMapLongClickListener(listener);
+  }
+
+  /**
+   * Adds a callback that's invoked when the user long clicks on the map view.
+   *
+   * @param listener The callback that's invoked when the user long clicks on the map view.
+   *                 To unset the callback, use null.
+   */
+  public void addOnMapLongClickListener(@Nullable OnMapLongClickListener listener) {
+    onGesturesManagerInteractionListener.onAddMapLongClickListener(listener);
+  }
+
+  /**
+   * Removes a callback that's invoked when the user long clicks on the map view.
+   *
+   * @param listener The callback that's invoked when the user long clicks on the map view.
+   *                 To unset the callback, use null.
+   */
+  public void removeOnMapLongClickListener(@Nullable OnMapLongClickListener listener) {
+    onGesturesManagerInteractionListener.onRemoveMapLongClickListener(listener);
   }
 
   /**
@@ -1823,7 +2167,7 @@ public final class MapboxMap {
    *
    * @return True if the my-location layer is enabled, false otherwise.
    * @deprecated use location layer plugin from
-   * https://github.com/mapbox/mapbox-plugins-android/tree/master/plugins/locationlayer instead.
+   * https://github.com/mapbox/mapbox-plugins-android/tree/master/plugin-locationlayer instead.
    */
   @Deprecated
   public boolean isMyLocationEnabled() {
@@ -1841,7 +2185,7 @@ public final class MapboxMap {
    *
    * @param enabled True to enable; false to disable.
    * @deprecated use location layer plugin from
-   * https://github.com/mapbox/mapbox-plugins-android/tree/master/plugins/locationlayer instead.
+   * https://github.com/mapbox/mapbox-plugins-android/tree/master/plugin-locationlayer instead.
    */
   @Deprecated
   public void setMyLocationEnabled(boolean enabled) {
@@ -1853,7 +2197,7 @@ public final class MapboxMap {
    *
    * @return The currently displayed user location.
    * @deprecated use location layer plugin from
-   * https://github.com/mapbox/mapbox-plugins-android/tree/master/plugins/locationlayer instead.
+   * https://github.com/mapbox/mapbox-plugins-android/tree/master/plugin-locationlayer instead.
    */
   @Nullable
   @Deprecated
@@ -1868,7 +2212,7 @@ public final class MapboxMap {
    * @param listener The callback that's invoked when the user clicks on a marker.
    *                 To unset the callback, use null.
    * @deprecated use location layer plugin from
-   * https://github.com/mapbox/mapbox-plugins-android/tree/master/plugins/locationlayer instead.
+   * https://github.com/mapbox/mapbox-plugins-android/tree/master/plugin-locationlayer instead.
    */
   @Deprecated
   public void setOnMyLocationChangeListener(@Nullable MapboxMap.OnMyLocationChangeListener
@@ -1881,7 +2225,7 @@ public final class MapboxMap {
    *
    * @param locationSource A {@link LocationEngine} location source to use in the my-location layer.
    * @deprecated use location layer plugin from
-   * https://github.com/mapbox/mapbox-plugins-android/tree/master/plugins/locationlayer instead.
+   * https://github.com/mapbox/mapbox-plugins-android/tree/master/plugin-locationlayer instead.
    */
   @Deprecated
   public void setLocationSource(@Nullable LocationEngine locationSource) {
@@ -1894,7 +2238,7 @@ public final class MapboxMap {
    * @param listener The callback that's invoked when the location tracking mode changes.
    *                 To unset the callback, use null.
    * @deprecated use location layer plugin from
-   * https://github.com/mapbox/mapbox-plugins-android/tree/master/plugins/locationlayer instead.
+   * https://github.com/mapbox/mapbox-plugins-android/tree/master/plugin-locationlayer instead.
    */
   @Deprecated
   public void setOnMyLocationTrackingModeChangeListener(
@@ -1908,7 +2252,7 @@ public final class MapboxMap {
    * @param listener The callback that's invoked when the bearing tracking mode changes.
    *                 To unset the callback, use null.
    * @deprecated use location layer plugin from
-   * https://github.com/mapbox/mapbox-plugins-android/tree/master/plugins/locationlayer instead.
+   * https://github.com/mapbox/mapbox-plugins-android/tree/master/plugin-locationlayer instead.
    */
   @Deprecated
   public void setOnMyBearingTrackingModeChangeListener(@Nullable OnMyBearingTrackingModeChangeListener listener) {
@@ -1984,6 +2328,15 @@ public final class MapboxMap {
     return nativeMapView.queryRenderedFeatures(coordinates, layerIds, filter);
   }
 
+  FocalPointChangeListener createFocalPointChangeListener() {
+    return new FocalPointChangeListener() {
+      @Override
+      public void onFocalPointChanged(PointF pointF) {
+        focalPoint = pointF;
+      }
+    };
+  }
+
   //
   // Interfaces
   //
@@ -2004,12 +2357,66 @@ public final class MapboxMap {
    * Interface definition for a callback to be invoked when the map is scrolled.
    *
    * @see MapboxMap#setOnScrollListener(OnScrollListener)
+   * @deprecated Use {@link OnMoveListener} instead.
    */
+  @Deprecated
   public interface OnScrollListener {
     /**
      * Called when the map is scrolled.
      */
     void onScroll();
+  }
+
+  /**
+   * Interface definition for a callback to be invoked when the map is moved.
+   *
+   * @see MapboxMap#addOnMoveListener(OnMoveListener)
+   */
+  public interface OnMoveListener {
+    void onMoveBegin(MoveGestureDetector detector);
+
+    void onMove(MoveGestureDetector detector);
+
+    void onMoveEnd(MoveGestureDetector detector);
+  }
+
+  /**
+   * Interface definition for a callback to be invoked when the map is rotated.
+   *
+   * @see MapboxMap#addOnRotateListener(OnRotateListener)
+   */
+  public interface OnRotateListener {
+    void onRotateBegin(RotateGestureDetector detector);
+
+    void onRotate(RotateGestureDetector detector);
+
+    void onRotateEnd(RotateGestureDetector detector);
+  }
+
+  /**
+   * Interface definition for a callback to be invoked when the map is scaled.
+   *
+   * @see MapboxMap#addOnScaleListener(OnScaleListener)
+   */
+  public interface OnScaleListener {
+    void onScaleBegin(StandardScaleGestureDetector detector);
+
+    void onScale(StandardScaleGestureDetector detector);
+
+    void onScaleEnd(StandardScaleGestureDetector detector);
+  }
+
+  /**
+   * Interface definition for a callback to be invoked when the map is tilted.
+   *
+   * @see MapboxMap#addOnShoveListener(OnShoveListener)
+   */
+  public interface OnShoveListener {
+    void onShoveBegin(ShoveGestureDetector detector);
+
+    void onShove(ShoveGestureDetector detector);
+
+    void onShoveEnd(ShoveGestureDetector detector);
   }
 
   /**
@@ -2082,6 +2489,21 @@ public final class MapboxMap {
   }
 
   /**
+   * Interface definition for a callback to be invoked for when the compass is animating.
+   */
+  public interface OnCompassAnimationListener {
+    /**
+     * Called repeatedly as the compass continues to move after clicking on it.
+     */
+    void onCompassAnimation();
+
+    /**
+     * Called when compass animation has ended.
+     */
+    void onCompassAnimationFinished();
+  }
+
+  /**
    * Interface definition for a callback to be invoked when a frame is rendered to the map view.
    *
    * @see MapboxMap#setOnFpsChangedListener(OnFpsChangedListener)
@@ -2099,14 +2521,50 @@ public final class MapboxMap {
    * Interface definition for a callback to be invoked when a user registers an listener that is
    * related to touch and click events.
    */
-  interface OnRegisterTouchListener {
-    void onRegisterMapClickListener(OnMapClickListener listener);
+  interface OnGesturesManagerInteractionListener {
+    void onSetMapClickListener(OnMapClickListener listener);
 
-    void onRegisterMapLongClickListener(OnMapLongClickListener listener);
+    void onAddMapClickListener(OnMapClickListener listener);
 
-    void onRegisterScrollListener(OnScrollListener listener);
+    void onRemoveMapClickListener(OnMapClickListener listener);
 
-    void onRegisterFlingListener(OnFlingListener listener);
+    void onSetMapLongClickListener(OnMapLongClickListener listener);
+
+    void onAddMapLongClickListener(OnMapLongClickListener listener);
+
+    void onRemoveMapLongClickListener(OnMapLongClickListener listener);
+
+    void onSetScrollListener(OnScrollListener listener);
+
+    void onAddScrollListener(OnScrollListener listener);
+
+    void onRemoveScrollListener(OnScrollListener listener);
+
+    void onSetFlingListener(OnFlingListener listener);
+
+    void onAddFlingListener(OnFlingListener listener);
+
+    void onRemoveFlingListener(OnFlingListener listener);
+
+    void onAddMoveListener(OnMoveListener listener);
+
+    void onRemoveMoveListener(OnMoveListener listener);
+
+    void onAddRotateListener(OnRotateListener listener);
+
+    void onRemoveRotateListener(OnRotateListener listener);
+
+    void onAddScaleListener(OnScaleListener listener);
+
+    void onRemoveScaleListener(OnScaleListener listener);
+
+    void onAddShoveListener(OnShoveListener listener);
+
+    void onRemoveShoveListener(OnShoveListener listener);
+
+    AndroidGesturesManager getGesturesManager();
+
+    void setGesturesManager(AndroidGesturesManager gesturesManager);
   }
 
   /**
@@ -2246,7 +2704,10 @@ public final class MapboxMap {
    * Interface definition for a callback to be invoked when an MarkerView will be shown.
    *
    * @param <U> the instance type of MarkerView
+   * @deprecated Use a {@link com.mapbox.mapboxsdk.style.layers.SymbolLayer} instead. An example of converting Android
+   * SDK views to be used as a symbol see https://github.com/mapbox/mapbox-gl-native/blob/68f32bc104422207c64da8d90e8411b138d87f04/platform/android/MapboxGLAndroidSDKTestApp/src/main/java/com/mapbox/mapboxsdk/testapp/activity/style/SymbolGeneratorActivity.java
    */
+  @Deprecated
   public abstract static class MarkerViewAdapter<U extends MarkerView> {
 
     private Context context;

@@ -32,7 +32,7 @@ public:
     float pixelRatio { 1 };
     HeadlessFrontend frontend { pixelRatio, fileSource, threadPool };
     Map map { frontend, MapObserver::nullObserver(), frontend.getSize(), pixelRatio, fileSource,
-              threadPool, MapMode::Still };
+              threadPool, MapMode::Static};
 
     void checkRendering(const char * name) {
         test::checkImage(std::string("test/fixtures/annotations/") + name,
@@ -366,8 +366,8 @@ TEST(Annotations, QueryFractionalZoomLevels) {
     test.map.addAnnotationImage(namedMarker("default_marker"));
 
     std::vector<mbgl::AnnotationID> ids;
-    for (int longitude = 0; longitude < 10; ++longitude) {
-        for (int latitude = 0; latitude < 10; ++latitude) {
+    for (int longitude = 0; longitude < 10; longitude += 2) {
+        for (int latitude = 0; latitude < 10; latitude += 2) {
             ids.push_back(test.map.addAnnotation(SymbolAnnotation { { double(latitude), double(longitude) }, "default_marker" }));
         }
     }
@@ -399,8 +399,8 @@ TEST(Annotations, VisibleFeatures) {
     test.map.setLatLngZoom({ 5, 5 }, 3);
 
     std::vector<mbgl::AnnotationID> ids;
-    for (int longitude = 0; longitude < 10; ++longitude) {
-        for (int latitude = 0; latitude <= 10; ++latitude) {
+    for (int longitude = 0; longitude < 10; longitude += 2) {
+        for (int latitude = 0; latitude <= 10; latitude += 2) {
             ids.push_back(test.map.addAnnotation(SymbolAnnotation { { double(latitude), double(longitude) }, "default_marker" }));
         }
     }
@@ -458,4 +458,20 @@ TEST(Annotations, DebugSparse) {
     test.map.addAnnotation(SymbolAnnotation { Point<double>(10, 10), "default_marker" });
 
     test.checkRendering("debug_sparse");
+}
+
+TEST(Annotations, ChangeMaxZoom) {
+    AnnotationTest test;
+
+    LineString<double> line = {{ { 0, 0 }, { 45, 45 }, { 30, 0 } }};
+    LineAnnotation annotation { line };
+    annotation.color = Color::red();
+    annotation.width = { 5 };
+
+    test.map.setMaxZoom(6);
+    test.map.getStyle().loadJSON(util::read_file("test/fixtures/api/empty.json"));
+    test.map.addAnnotation(annotation);
+    test.map.setMaxZoom(14);
+    test.map.setZoom(test.map.getMaxZoom());
+    test.checkRendering("line_annotation_max_zoom");
 }

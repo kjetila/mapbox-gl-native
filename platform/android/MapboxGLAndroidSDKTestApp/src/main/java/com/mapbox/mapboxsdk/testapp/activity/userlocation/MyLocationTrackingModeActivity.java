@@ -14,6 +14,7 @@ import android.widget.ArrayAdapter;
 import android.widget.Spinner;
 import android.widget.Toast;
 
+import com.mapbox.mapboxsdk.Mapbox;
 import com.mapbox.mapboxsdk.camera.CameraUpdateFactory;
 import com.mapbox.mapboxsdk.constants.MyBearingTracking;
 import com.mapbox.mapboxsdk.constants.MyLocationTracking;
@@ -24,10 +25,7 @@ import com.mapbox.mapboxsdk.maps.OnMapReadyCallback;
 import com.mapbox.mapboxsdk.maps.TrackingSettings;
 import com.mapbox.mapboxsdk.maps.UiSettings;
 import com.mapbox.mapboxsdk.testapp.R;
-import com.mapzen.android.lost.api.LocationListener;
-import com.mapzen.android.lost.api.LocationRequest;
-import com.mapzen.android.lost.api.LocationServices;
-import com.mapzen.android.lost.api.LostApiClient;
+import com.mapbox.android.core.location.LocationEngineListener;
 
 import timber.log.Timber;
 
@@ -39,10 +37,7 @@ import timber.log.Timber;
  * </p>
  */
 public class MyLocationTrackingModeActivity extends AppCompatActivity implements AdapterView.OnItemSelectedListener,
-  OnMapReadyCallback, LocationListener {
-
-  // Testing for user defined LostApiClient
-  private LostApiClient lostApiClient;
+  OnMapReadyCallback, LocationEngineListener {
 
   public static final int TRACKING_NONE_INDEX = 0;
   public static final int TRACKING_FOLLOW_INDEX = 1;
@@ -75,18 +70,15 @@ public class MyLocationTrackingModeActivity extends AppCompatActivity implements
   @Override
   public void onMapReady(MapboxMap mapboxMap) {
     MyLocationTrackingModeActivity.this.mapboxMap = mapboxMap;
-    lostApiClient = new LostApiClient.Builder(this).build();
-    lostApiClient.connect();
-    LocationRequest request = LocationRequest.create()
-      .setPriority(LocationRequest.PRIORITY_LOW_POWER)
-      .setInterval(5000)
-      .setSmallestDisplacement(10);
 
-    Location location = LocationServices.FusedLocationApi.getLastLocation();
-    if (location != null) {
-      setInitialLocation(location, 15);
-    }
-    LocationServices.FusedLocationApi.requestLocationUpdates(request, this);
+    mapboxMap.setMyLocationEnabled(true);
+    Mapbox.getLocationEngine().addLocationEngineListener(this);
+    Mapbox.getLocationEngine().requestLocationUpdates();
+  }
+
+  @Override
+  public void onConnected() {
+    // Nothing
   }
 
   @Override
@@ -133,41 +125,35 @@ public class MyLocationTrackingModeActivity extends AppCompatActivity implements
     bearingSpinner.setOnItemSelectedListener(MyLocationTrackingModeActivity.this);
     setCheckBoxes();
 
-    mapboxMap.setOnMyLocationTrackingModeChangeListener(new MapboxMap.OnMyLocationTrackingModeChangeListener() {
-      @Override
-      public void onMyLocationTrackingModeChange(@MyLocationTracking.Mode int myLocationTrackingMode) {
-        locationSpinner.setOnItemSelectedListener(null);
-        switch (myLocationTrackingMode) {
-          case MyLocationTracking.TRACKING_NONE:
-            locationSpinner.setSelection(TRACKING_NONE_INDEX);
-            break;
-          case MyLocationTracking.TRACKING_FOLLOW:
-            locationSpinner.setSelection(TRACKING_FOLLOW_INDEX);
-            break;
-        }
-        locationSpinner.setOnItemSelectedListener(MyLocationTrackingModeActivity.this);
+    mapboxMap.setOnMyLocationTrackingModeChangeListener(myLocationTrackingMode -> {
+      locationSpinner.setOnItemSelectedListener(null);
+      switch (myLocationTrackingMode) {
+        case MyLocationTracking.TRACKING_NONE:
+          locationSpinner.setSelection(TRACKING_NONE_INDEX);
+          break;
+        case MyLocationTracking.TRACKING_FOLLOW:
+          locationSpinner.setSelection(TRACKING_FOLLOW_INDEX);
+          break;
       }
+      locationSpinner.setOnItemSelectedListener(MyLocationTrackingModeActivity.this);
     });
 
-    mapboxMap.setOnMyBearingTrackingModeChangeListener(new MapboxMap.OnMyBearingTrackingModeChangeListener() {
-      @Override
-      public void onMyBearingTrackingModeChange(@MyBearingTracking.Mode int myBearingTrackingMode) {
-        bearingSpinner.setOnItemSelectedListener(null);
-        switch (myBearingTrackingMode) {
-          case MyBearingTracking.NONE:
-            bearingSpinner.setSelection(BEARING_NONE_INDEX);
-            break;
+    mapboxMap.setOnMyBearingTrackingModeChangeListener(myBearingTrackingMode -> {
+      bearingSpinner.setOnItemSelectedListener(null);
+      switch (myBearingTrackingMode) {
+        case MyBearingTracking.NONE:
+          bearingSpinner.setSelection(BEARING_NONE_INDEX);
+          break;
 
-          case MyBearingTracking.GPS:
-            bearingSpinner.setSelection(BEARING_GPS_INDEX);
-            break;
+        case MyBearingTracking.GPS:
+          bearingSpinner.setSelection(BEARING_GPS_INDEX);
+          break;
 
-          case MyBearingTracking.COMPASS:
-            bearingSpinner.setSelection(BEARING_COMPASS_INDEX);
-            break;
-        }
-        bearingSpinner.setOnItemSelectedListener(MyLocationTrackingModeActivity.this);
+        case MyBearingTracking.COMPASS:
+          bearingSpinner.setSelection(BEARING_COMPASS_INDEX);
+          break;
       }
+      bearingSpinner.setOnItemSelectedListener(MyLocationTrackingModeActivity.this);
     });
   }
 
@@ -227,10 +213,8 @@ public class MyLocationTrackingModeActivity extends AppCompatActivity implements
   @Override
   protected void onStop() {
     super.onStop();
-    if (lostApiClient.isConnected()) {
-      LocationServices.FusedLocationApi.removeLocationUpdates(this);
-      lostApiClient.disconnect();
-    }
+    Mapbox.getLocationEngine().removeLocationEngineListener(this);
+    Mapbox.getLocationEngine().removeLocationUpdates();
     mapView.onStop();
   }
 

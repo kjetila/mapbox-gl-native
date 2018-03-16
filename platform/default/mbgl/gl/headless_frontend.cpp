@@ -1,15 +1,17 @@
 #include <mbgl/gl/headless_frontend.hpp>
 #include <mbgl/renderer/renderer.hpp>
+#include <mbgl/renderer/update_parameters.hpp>
 #include <mbgl/map/map.hpp>
+#include <mbgl/map/transform_state.hpp>
 #include <mbgl/util/run_loop.hpp>
 
 namespace mbgl {
 
-HeadlessFrontend::HeadlessFrontend(float pixelRatio_, FileSource& fileSource, Scheduler& scheduler)
-    : HeadlessFrontend({ 256, 256 }, pixelRatio_, fileSource, scheduler) {
+HeadlessFrontend::HeadlessFrontend(float pixelRatio_, FileSource& fileSource, Scheduler& scheduler, const optional<std::string> programCacheDir, GLContextMode mode, const optional<std::string> localFontFamily)
+    : HeadlessFrontend({ 256, 256 }, pixelRatio_, fileSource, scheduler, programCacheDir, mode, localFontFamily) {
 }
 
-HeadlessFrontend::HeadlessFrontend(Size size_, float pixelRatio_, FileSource& fileSource, Scheduler& scheduler)
+HeadlessFrontend::HeadlessFrontend(Size size_, float pixelRatio_, FileSource& fileSource, Scheduler& scheduler, const optional<std::string> programCacheDir, GLContextMode mode, const optional<std::string> localFontFamily)
     : size(size_),
     pixelRatio(pixelRatio_),
     backend({ static_cast<uint32_t>(size.width * pixelRatio),
@@ -20,7 +22,7 @@ HeadlessFrontend::HeadlessFrontend(Size size_, float pixelRatio_, FileSource& fi
             renderer->render(*updateParameters);
         }
     }),
-    renderer(std::make_unique<Renderer>(backend, pixelRatio, fileSource, scheduler)) {
+    renderer(std::make_unique<Renderer>(backend, pixelRatio, fileSource, scheduler, mode, programCacheDir, localFontFamily)) {
 }
 
 HeadlessFrontend::~HeadlessFrontend() = default;
@@ -81,6 +83,14 @@ PremultipliedImage HeadlessFrontend::render(Map& map) {
     }
 
     return result;
+}
+
+optional<TransformState> HeadlessFrontend::getTransformState() const {
+    if (updateParameters) {
+        return updateParameters->transformState;
+    } else {
+        return {};
+    }
 }
 
 } // namespace mbgl

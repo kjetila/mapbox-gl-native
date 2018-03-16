@@ -28,6 +28,10 @@ public:
         pauseResumeCallback = callback;
     };
 
+    void setOnlineStatusCallback(std::function<void()> callback) {
+        onlineStatusCallback = callback;
+    }
+
     void setShouldClose();
 
     void setWindowTitle(const std::string&);
@@ -37,7 +41,7 @@ public:
     void invalidate();
 
     mbgl::Size getSize() const;
-    mbgl::Size getFramebufferSize() const;
+    mbgl::Size getFramebufferSize() const override;
 
     // mbgl::RendererBackend implementation
     void bind() override;
@@ -48,7 +52,7 @@ public:
 
 protected:
     // mbgl::Backend implementation
-    mbgl::gl::ProcAddress initializeExtension(const char*) override;
+    mbgl::gl::ProcAddress getExtensionFunctionPointer(const char*) override;
     void activate() override;
     void deactivate() override;
 
@@ -74,12 +78,17 @@ private:
     void addRandomLineAnnotations(int count);
     void addRandomShapeAnnotations(int count);
     void addRandomCustomPointAnnotations(int count);
+    void addAnimatedAnnotation();
+    void updateAnimatedAnnotations();
 
     void clearAnnotations();
     void popAnnotation();
 
     mbgl::AnnotationIDs annotationIDs;
     std::vector<std::string> spriteIDs;
+
+    mbgl::AnnotationIDs animatedAnnotationIDs;
+    std::vector<double> animatedAnnotationAddedTimes;
 
 private:
     void toggle3DExtrusions(bool visible);
@@ -111,6 +120,7 @@ private:
 
     std::function<void()> changeStyleCallback;
     std::function<void()> pauseResumeCallback;
+    std::function<void()> onlineStatusCallback;
     std::function<void(mbgl::Map*)> animateRouteCallback;
 
     mbgl::util::RunLoop runLoop;

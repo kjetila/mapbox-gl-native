@@ -110,6 +110,7 @@ GLFWView::GLFWView(bool fullscreen_, bool benchmark_)
     printf("- Press `N` to reset north\n");
     printf("- Press `R` to enable the route demo\n");
     printf("- Press `E` to insert an example building extrusion layer\n");
+    printf("- Press `O` to toggle online connectivity\n");
     printf("- Press `Z` to cycle through north orientations\n");
     printf("- Prezz `X` to cycle through the viewport modes\n");
     printf("- Press `A` to cycle through Mapbox offices in the world + dateline monument\n");
@@ -175,6 +176,9 @@ void GLFWView::onKey(GLFWwindow *window, int key, int /*scancode*/, int action, 
         case GLFW_KEY_X:
             if (!mods)
                 view->map->resetPosition();
+            break;
+        case GLFW_KEY_O:
+            view->onlineStatusCallback();
             break;
         case GLFW_KEY_S:
             if (view->changeStyleCallback)
@@ -284,6 +288,7 @@ void GLFWView::onKey(GLFWwindow *window, int key, int /*scancode*/, int action, 
         case GLFW_KEY_8: view->addRandomShapeAnnotations(10); break;
         case GLFW_KEY_9: view->addRandomShapeAnnotations(100); break;
         case GLFW_KEY_0: view->addRandomShapeAnnotations(1000); break;
+        case GLFW_KEY_M: view->addAnimatedAnnotation(); break;
         }
     }
 }
@@ -375,12 +380,36 @@ void GLFWView::addRandomShapeAnnotations(int count) {
     }
 }
 
+void GLFWView::addAnimatedAnnotation() {
+    const double started = glfwGetTime();
+    animatedAnnotationIDs.push_back(map->addAnnotation(mbgl::SymbolAnnotation { { 0, 0 } , "default_marker" }));
+    animatedAnnotationAddedTimes.push_back(started);
+}
+
+void GLFWView::updateAnimatedAnnotations() {
+    const double time = glfwGetTime();
+    for (size_t i = 0; i < animatedAnnotationIDs.size(); i++) {
+        auto dt = time - animatedAnnotationAddedTimes[i];
+
+        const double period = 10;
+        const double x = dt / period * 360 - 180;
+        const double y = std::sin(dt/ period * M_PI * 2.0) * 80;
+        map->updateAnnotation(animatedAnnotationIDs[i], mbgl::SymbolAnnotation { {x, y }, "default_marker" });
+    }
+}
+
 void GLFWView::clearAnnotations() {
     for (const auto& id : annotationIDs) {
         map->removeAnnotation(id);
     }
 
     annotationIDs.clear();
+
+    for (const auto& id : animatedAnnotationIDs) {
+        map->removeAnnotation(id);
+    }
+
+    animatedAnnotationIDs.clear();
 }
 
 void GLFWView::popAnnotation() {
@@ -502,6 +531,8 @@ void GLFWView::run() {
             if (animateRouteCallback)
                 animateRouteCallback(map);
 
+            updateAnimatedAnnotations();
+
             activate();
 
             rendererFrontend->render();
@@ -536,7 +567,7 @@ mbgl::Size GLFWView::getFramebufferSize() const {
     return { static_cast<uint32_t>(fbWidth), static_cast<uint32_t>(fbHeight) };
 }
 
-mbgl::gl::ProcAddress GLFWView::initializeExtension(const char* name) {
+mbgl::gl::ProcAddress GLFWView::getExtensionFunctionPointer(const char* name) {
     return glfwGetProcAddress(name);
 }
 

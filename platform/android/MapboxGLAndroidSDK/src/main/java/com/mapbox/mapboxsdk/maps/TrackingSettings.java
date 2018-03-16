@@ -12,9 +12,9 @@ import com.mapbox.mapboxsdk.constants.MapboxConstants;
 import com.mapbox.mapboxsdk.constants.MyBearingTracking;
 import com.mapbox.mapboxsdk.constants.MyLocationTracking;
 import com.mapbox.mapboxsdk.maps.widgets.MyLocationView;
-import com.mapbox.services.android.telemetry.location.LocationEngine;
-import com.mapbox.services.android.telemetry.location.LocationEngineListener;
-import com.mapbox.services.android.telemetry.permissions.PermissionsManager;
+import com.mapbox.android.core.location.LocationEngine;
+import com.mapbox.android.core.location.LocationEngineListener;
+import com.mapbox.android.core.permissions.PermissionsManager;
 
 import timber.log.Timber;
 
@@ -52,7 +52,7 @@ public final class TrackingSettings {
   }
 
   void initialise(MapboxMapOptions options) {
-    locationSource = Mapbox.getLocationSource();
+    locationSource = Mapbox.getLocationEngine();
     setMyLocationEnabled(options.getLocationEnabled());
   }
 
@@ -374,7 +374,7 @@ public final class TrackingSettings {
   }
 
   private void setMyLocationEnabled(boolean locationEnabled, boolean isCustomLocationSource) {
-    if (!PermissionsManager.areLocationPermissionsGranted(myLocationView.getContext())) {
+    if (locationEnabled && !PermissionsManager.areLocationPermissionsGranted(myLocationView.getContext())) {
       Timber.e("Could not activate user location tracking: "
         + "user did not accept the permission or permissions were not requested.");
       return;
@@ -392,7 +392,7 @@ public final class TrackingSettings {
 
     this.isCustomLocationSource = locationSource != null;
     if (locationSource == null) {
-      locationSource = Mapbox.getLocationSource();
+      locationSource = Mapbox.getLocationEngine();
     }
     this.locationSource = locationSource;
     myLocationView.setLocationSource(locationSource);

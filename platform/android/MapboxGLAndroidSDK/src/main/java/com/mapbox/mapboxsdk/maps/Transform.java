@@ -1,6 +1,7 @@
 package com.mapbox.mapboxsdk.maps;
 
 import android.graphics.PointF;
+import android.os.Handler;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.annotation.UiThread;
@@ -31,6 +32,7 @@ final class Transform implements MapView.OnMapChangedListener {
   private final MarkerViewManager markerViewManager;
   private final TrackingSettings trackingSettings;
   private final MyLocationView myLocationView;
+  private final Handler handler = new Handler();
 
   private CameraPosition cameraPosition;
   private MapboxMap.CancelableCallback cameraCancelableCallback;
@@ -82,8 +84,15 @@ final class Transform implements MapView.OnMapChangedListener {
     if (change == REGION_DID_CHANGE_ANIMATED) {
       updateCameraPosition(invalidateCameraPosition());
       if (cameraCancelableCallback != null) {
-        cameraCancelableCallback.onFinish();
-        cameraCancelableCallback = null;
+        handler.post(new Runnable() {
+          @Override
+          public void run() {
+            if (cameraCancelableCallback != null) {
+              cameraCancelableCallback.onFinish();
+              cameraCancelableCallback = null;
+            }
+          }
+        });
       }
       cameraChangeDispatcher.onCameraIdle();
       mapView.removeOnMapChangedListener(this);
@@ -91,17 +100,23 @@ final class Transform implements MapView.OnMapChangedListener {
   }
 
   @UiThread
-  final void moveCamera(MapboxMap mapboxMap, CameraUpdate update, MapboxMap.CancelableCallback callback) {
+  final void moveCamera(MapboxMap mapboxMap, CameraUpdate update, final MapboxMap.CancelableCallback callback) {
     CameraPosition cameraPosition = update.getCameraPosition(mapboxMap);
     if (isValidCameraPosition(cameraPosition)) {
       trackingSettings.resetTrackingModesIfRequired(this.cameraPosition, cameraPosition, false);
       cancelTransitions();
       cameraChangeDispatcher.onCameraMoveStarted(OnCameraMoveStartedListener.REASON_API_ANIMATION);
       mapView.jumpTo(cameraPosition.bearing, cameraPosition.target, cameraPosition.tilt, cameraPosition.zoom);
-      if (callback != null) {
-        callback.onFinish();
-      }
       cameraChangeDispatcher.onCameraIdle();
+      invalidateCameraPosition();
+      handler.post(new Runnable() {
+        @Override
+        public void run() {
+          if (callback != null) {
+            callback.onFinish();
+          }
+        }
+      });
     }
   }
 
@@ -177,13 +192,21 @@ final class Transform implements MapView.OnMapChangedListener {
 
     // notify animateCamera and easeCamera about cancelling
     if (cameraCancelableCallback != null) {
+      final MapboxMap.CancelableCallback callback = cameraCancelableCallback;
       cameraChangeDispatcher.onCameraIdle();
-      cameraCancelableCallback.onCancel();
+      handler.post(new Runnable() {
+        @Override
+        public void run() {
+          callback.onCancel();
+        }
+      });
       cameraCancelableCallback = null;
     }
 
     // cancel ongoing transitions
     mapView.cancelTransitions();
+
+    cameraChangeDispatcher.onCameraIdle();
   }
 
   @UiThread
@@ -210,15 +233,28 @@ final class Transform implements MapView.OnMapChangedListener {
     return cameraPosition.zoom;
   }
 
-  void zoom(boolean zoomIn, @NonNull PointF focalPoint) {
+  double getRawZoom() {
+    return mapView.getZoom();
+  }
+
+  void zoomIn(@NonNull PointF focalPoint) {
     CameraPosition cameraPosition = invalidateCameraPosition();
     if (cameraPosition != null) {
-      int newZoom = (int) Math.round(cameraPosition.zoom + (zoomIn ? 1 : -1));
+      int newZoom = (int) Math.round(cameraPosition.zoom + 1);
       setZoom(newZoom, focalPoint, MapboxConstants.ANIMATION_DURATION);
-    } else {
-      // we are not transforming, notify about being idle
-      cameraChangeDispatcher.onCameraIdle();
     }
+  }
+
+  void zoomOut(@NonNull PointF focalPoint) {
+    CameraPosition cameraPosition = invalidateCameraPosition();
+    if (cameraPosition != null) {
+      int newZoom = (int) Math.round(cameraPosition.zoom - 1);
+      setZoom(newZoom, focalPoint, MapboxConstants.ANIMATION_DURATION);
+    }
+  }
+
+  void zoomBy(double zoomAddition, @NonNull PointF focalPoint) {
+    setZoom(mapView.getZoom() + zoomAddition, focalPoint, 0);
   }
 
   void setZoom(double zoom, @NonNull PointF focalPoint) {
@@ -226,16 +262,20 @@ final class Transform implements MapView.OnMapChangedListener {
   }
 
   void setZoom(double zoom, @NonNull PointF focalPoint, long duration) {
-    mapView.addOnMapChangedListener(new MapView.OnMapChangedListener() {
-      @Override
-      public void onMapChanged(int change) {
-        if (change == MapView.REGION_DID_CHANGE_ANIMATED) {
-          cameraChangeDispatcher.onCameraIdle();
-          mapView.removeOnMapChangedListener(this);
+    if (mapView != null) {
+      mapView.addOnMapChangedListener(new MapView.OnMapChangedListener() {
+        @Override
+        public void onMapChanged(int change) {
+          if (change == MapView.REGION_DID_CHANGE_ANIMATED) {
+            if (duration > 0) {
+              cameraChangeDispatcher.onCameraIdle();
+            }
+            mapView.removeOnMapChangedListener(this);
+          }
         }
-      }
-    });
-    mapView.setZoom(zoom, focalPoint, duration);
+      });
+      mapView.setZoom(zoom, focalPoint, duration);
+    }
   }
 
   // Direction
@@ -319,10 +359,6 @@ final class Transform implements MapView.OnMapChangedListener {
     if (!gestureInProgress) {
       invalidateCameraPosition();
     }
-  }
-
-  void zoomBy(double z, float x, float y) {
-    mapView.setZoom(mapView.getZoom() + z, new PointF(x, y), 0);
   }
 
   void moveBy(double offsetX, double offsetY, long duration) {

@@ -21,7 +21,7 @@ namespace mbgl {
 class PaintParameters;
 class TransformState;
 class RenderTile;
-class RenderStyle;
+class RenderLayer;
 class RenderedQueryOptions;
 class SourceQueryOptions;
 class TileParameters;
@@ -37,33 +37,34 @@ public:
                 bool needsRendering,
                 bool needsRelayout,
                 const TileParameters&,
-                SourceType type,
+                style::SourceType type,
                 uint16_t tileSize,
                 Range<uint8_t> zoomRange,
+                optional<LatLngBounds> bounds,
                 std::function<std::unique_ptr<Tile> (const OverscaledTileID&)> createTile);
 
     void startRender(PaintParameters&);
     void finishRender(PaintParameters&);
 
     std::vector<std::reference_wrapper<RenderTile>> getRenderTiles();
+    Tile* getTile(const OverscaledTileID&);
 
     std::unordered_map<std::string, std::vector<Feature>>
     queryRenderedFeatures(const ScreenLineString& geometry,
                           const TransformState& transformState,
-                          const RenderStyle& style,
-                          const RenderedQueryOptions& options) const;
+                          const std::vector<const RenderLayer*>&,
+                          const RenderedQueryOptions& options,
+                          const CollisionIndex& collisionIndex) const;
 
     std::vector<Feature> querySourceFeatures(const SourceQueryOptions&) const;
 
     void setCacheSize(size_t);
-    void onLowMemory();
+    void reduceMemoryUse();
 
     void setObserver(TileObserver*);
     void dumpDebugLogs() const;
 
     bool enabled = false;
-
-    void removeStaleTiles(const std::set<OverscaledTileID>&);
 
     std::map<OverscaledTileID, std::unique_ptr<Tile>> tiles;
     TileCache cache;

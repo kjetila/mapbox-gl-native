@@ -6,9 +6,11 @@
 #include <mbgl/style/layers/background_layer.hpp>
 #include <mbgl/style/layers/fill_layer.hpp>
 #include <mbgl/style/layers/fill_extrusion_layer.hpp>
+#include <mbgl/style/layers/heatmap_layer.hpp>
 #include <mbgl/style/layers/line_layer.hpp>
 #include <mbgl/style/layers/circle_layer.hpp>
 #include <mbgl/style/layers/raster_layer.hpp>
+#include <mbgl/style/layers/hillshade_layer.hpp>
 #include <mbgl/style/layer_impl.hpp>
 #include <mbgl/style/parser.hpp>
 #include <mbgl/style/transition_options.hpp>
@@ -53,11 +55,6 @@ void Style::Impl::loadURL(const std::string& url_) {
     url = url_;
 
     styleRequest = fileSource.request(Resource::style(url), [this](Response res) {
-        // Once we get a fresh style, or the style is mutated, stop revalidating.
-        if (res.isFresh() || mutated) {
-            styleRequest.reset();
-        }
-
         // Don't allow a loaded, mutated style to be overwritten with a new version.
         if (mutated && loaded) {
             return;
@@ -88,7 +85,7 @@ void Style::Impl::parse(const std::string& json_) {
     }
 
     mutated = false;
-    loaded = true;
+    loaded = false;
     json = json_;
 
     sources.clear();
@@ -118,6 +115,7 @@ void Style::Impl::parse(const std::string& json_) {
     spriteLoader->load(parser.spriteURL, scheduler, fileSource);
     glyphURL = parser.glyphURL;
 
+    loaded = true;
     observer->onStyleLoaded();
 }
 
@@ -203,9 +201,10 @@ Layer* Style::Impl::addLayer(std::unique_ptr<Layer> layer, optional<std::string>
     }
 
     layer->setObserver(this);
-    observer->onUpdate(Update::Repaint);
+    Layer* result = layers.add(std::move(layer), before);
+    observer->onUpdate();
 
-    return layers.add(std::move(layer), before);
+    return result;
 }
 
 std::unique_ptr<Layer> Style::Impl::removeLayer(const std::string& id) {
@@ -213,7 +212,7 @@ std::unique_ptr<Layer> Style::Impl::removeLayer(const std::string& id) {
 
     if (layer) {
         layer->setObserver(nullptr);
-        observer->onUpdate(Update::Repaint);
+        observer->onUpdate();
     }
 
     return layer;
@@ -288,13 +287,13 @@ void Style::Impl::setObserver(style::Observer* observer_) {
 void Style::Impl::onSourceLoaded(Source& source) {
     sources.update(source);
     observer->onSourceLoaded(source);
-    observer->onUpdate(Update::Repaint);
+    observer->onUpdate();
 }
 
 void Style::Impl::onSourceChanged(Source& source) {
     sources.update(source);
     observer->onSourceChanged(source);
-    observer->onUpdate(Update::Repaint);
+    observer->onUpdate();
 }
 
 void Style::Impl::onSourceError(Source& source, std::exception_ptr error) {
@@ -318,7 +317,7 @@ void Style::Impl::onSpriteLoaded(std::vector<std::unique_ptr<Image>>&& images_) 
         addImage(std::move(image));
     }
     spriteLoaded = true;
-    observer->onUpdate(Update::Repaint); // For *-pattern properties.
+    observer->onUpdate(); // For *-pattern properties.
 }
 
 void Style::Impl::onSpriteError(std::exception_ptr error) {
@@ -329,11 +328,11 @@ void Style::Impl::onSpriteError(std::exception_ptr error) {
 
 void Style::Impl::onLayerChanged(Layer& layer) {
     layers.update(layer);
-    observer->onUpdate(Update::Repaint);
+    observer->onUpdate();
 }
 
 void Style::Impl::onLightChanged(const Light&) {
-    observer->onUpdate(Update::Repaint);
+    observer->onUpdate();
 }
 
 void Style::Impl::dumpDebugLogs() const {

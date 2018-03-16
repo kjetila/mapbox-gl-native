@@ -4,11 +4,22 @@
 #include <jni/jni.hpp>
 
 #include <mbgl/style/style.hpp>
+#include <mbgl/style/filter.hpp>
 #include <mbgl/style/transition_options.hpp>
+#include <mbgl/style/layers/background_layer.hpp>
+#include <mbgl/style/layers/circle_layer.hpp>
+#include <mbgl/style/layers/fill_layer.hpp>
+#include <mbgl/style/layers/fill_extrusion_layer.hpp>
+#include <mbgl/style/layers/heatmap_layer.hpp>
+#include <mbgl/style/layers/hillshade_layer.hpp>
+#include <mbgl/style/layers/line_layer.hpp>
+#include <mbgl/style/layers/raster_layer.hpp>
+#include <mbgl/style/layers/symbol_layer.hpp>
 #include <mbgl/util/logging.hpp>
 
 // Java -> C++ conversion
 #include <mbgl/style/conversion.hpp>
+#include <mbgl/style/conversion/filter.hpp>
 #include <mbgl/style/conversion/layer.hpp>
 #include <mbgl/style/conversion/source.hpp>
 
@@ -78,10 +89,8 @@ namespace android {
     }
 
     void Layer::setLayoutProperty(jni::JNIEnv& env, jni::String jname, jni::Object<> jvalue) {
-        Value value(env, jvalue);
-
         // Convert and set property
-        optional<mbgl::style::conversion::Error> error = mbgl::style::conversion::setLayoutProperty(layer, jni::Make<std::string>(env, jname), value);
+        optional<mbgl::style::conversion::Error> error = mbgl::style::conversion::setLayoutProperty(layer, jni::Make<std::string>(env, jname), Value(env, jvalue));
         if (error) {
             mbgl::Log::Error(mbgl::Event::JNI, "Error setting property: " + jni::Make<std::string>(env, jname) + " " + error->message);
             return;
@@ -89,10 +98,8 @@ namespace android {
     }
 
     void Layer::setPaintProperty(jni::JNIEnv& env, jni::String jname, jni::Object<> jvalue) {
-        Value value(env, jvalue);
-
         // Convert and set property
-        optional<mbgl::style::conversion::Error> error = mbgl::style::conversion::setPaintProperty(layer, jni::Make<std::string>(env, jname), value);
+        optional<mbgl::style::conversion::Error> error = mbgl::style::conversion::setPaintProperty(layer, jni::Make<std::string>(env, jname), Value(env, jvalue));
         if (error) {
             mbgl::Log::Error(mbgl::Event::JNI, "Error setting property: " + jni::Make<std::string>(env, jname) + " " + error->message);
             return;
@@ -105,6 +112,7 @@ namespace android {
         void operator()(style::BackgroundLayer&) { Log::Warning(mbgl::Event::JNI, "BackgroundLayer doesn't support filters"); }
         void operator()(style::CustomLayer&) { Log::Warning(mbgl::Event::JNI, "CustomLayer doesn't support filters"); }
         void operator()(style::RasterLayer&) { Log::Warning(mbgl::Event::JNI, "RasterLayer doesn't support filters"); }
+        void operator()(style::HillshadeLayer&) { Log::Warning(mbgl::Event::JNI, "HillshadeLayer doesn't support filters"); }
 
         template <class LayerType>
         void operator()(LayerType& layer) {
@@ -116,10 +124,8 @@ namespace android {
         using namespace mbgl::style;
         using namespace mbgl::style::conversion;
 
-        Value wrapped(env, jfilter);
-
         Error error;
-        optional<Filter> converted = convert<Filter>(wrapped, error);
+        optional<Filter> converted = convert<Filter>(Value(env, jfilter), error);
         if (!converted) {
             mbgl::Log::Error(mbgl::Event::JNI, "Error setting filter: " + error.message);
             return;
@@ -134,6 +140,7 @@ namespace android {
         void operator()(style::BackgroundLayer&) { Log::Warning(mbgl::Event::JNI, "BackgroundLayer doesn't support source layer"); }
         void operator()(style::CustomLayer&) { Log::Warning(mbgl::Event::JNI, "CustomLayer doesn't support source layer"); }
         void operator()(style::RasterLayer&) { Log::Warning(mbgl::Event::JNI, "RasterLayer doesn't support source layer"); }
+        void operator()(style::HillshadeLayer&) { Log::Warning(mbgl::Event::JNI, "HillshadeLayer doesn't support source layer"); }
 
         template <class LayerType>
         void operator()(LayerType& layer) {
@@ -154,6 +161,7 @@ namespace android {
         std::string operator()(style::BackgroundLayer&) { return noop("BackgroundLayer"); }
         std::string operator()(style::CustomLayer&) { return noop("CustomLayer"); }
         std::string operator()(style::RasterLayer&) { return noop("RasterLayer"); }
+        std::string operator()(style::HillshadeLayer&) { return noop("HillshadeLayer"); }
 
         template <class LayerType>
         std::string operator()(LayerType& layer) {

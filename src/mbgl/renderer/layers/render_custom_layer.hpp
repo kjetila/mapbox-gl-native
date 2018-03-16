@@ -19,8 +19,14 @@ public:
 
     const style::CustomLayer::Impl& impl() const;
 
+    void markContextDestroyed() {
+        contextDestroyed = true;
+    };
+
 private:
     bool initialized = false;
+    bool contextDestroyed = false;
+    void * context = nullptr;
 };
 
 template <>

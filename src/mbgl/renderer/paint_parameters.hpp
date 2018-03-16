@@ -2,6 +2,7 @@
 
 #include <mbgl/renderer/render_pass.hpp>
 #include <mbgl/renderer/render_light.hpp>
+#include <mbgl/renderer/mode.hpp>
 #include <mbgl/map/mode.hpp>
 #include <mbgl/gl/depth_mode.hpp>
 #include <mbgl/gl/stencil_mode.hpp>
@@ -15,9 +16,7 @@ namespace mbgl {
 
 class RendererBackend;
 class UpdateParameters;
-class RenderStyle;
 class RenderStaticData;
-class FrameHistory;
 class Programs;
 class TransformState;
 class ImageManager;
@@ -31,9 +30,10 @@ public:
                     GLContextMode,
                     RendererBackend&,
                     const UpdateParameters&,
-                    RenderStyle&,
+                    const EvaluatedLight&,
                     RenderStaticData&,
-                    FrameHistory&);
+                    ImageManager&,
+                    LineAtlas&);
 
     gl::Context& context;
     RendererBackend& backend;
@@ -42,7 +42,6 @@ public:
     const EvaluatedLight& evaluatedLight;
 
     RenderStaticData& staticData;
-    FrameHistory& frameHistory;
     ImageManager& imageManager;
     LineAtlas& lineAtlas;
 
@@ -59,18 +58,22 @@ public:
     Programs& programs;
 
     gl::DepthMode depthModeForSublayer(uint8_t n, gl::DepthMode::Mask) const;
+    gl::DepthMode depthModeFor3D(gl::DepthMode::Mask) const;
     gl::StencilMode stencilModeForClipping(const ClipID&) const;
     gl::ColorMode colorModeForRenderPass() const;
 
-    mat4 matrixForTile(const UnwrappedTileID&);
+    mat4 matrixForTile(const UnwrappedTileID&, bool aligned = false) const;
 
     mat4 projMatrix;
+    mat4 alignedProjMatrix;
     mat4 nearClippedProjMatrix;
 
     int numSublayers = 3;
     uint32_t currentLayer;
     float depthRangeSize;
     const float depthEpsilon = 1.0f / (1 << 16);
+    
+    float symbolFadeChange;
 };
 
 } // namespace mbgl

@@ -1,7 +1,7 @@
 #pragma once
 
-#include <mbgl/map/mode.hpp>
 #include <mbgl/renderer/query.hpp>
+#include <mbgl/renderer/mode.hpp>
 #include <mbgl/annotation/annotation.hpp>
 #include <mbgl/util/geo.hpp>
 #include <mbgl/util/geo.hpp>
@@ -25,8 +25,11 @@ class Renderer {
 public:
     Renderer(RendererBackend&, float pixelRatio_, FileSource&, Scheduler&,
              GLContextMode = GLContextMode::Unique,
-             const optional<std::string> programCacheDir = {});
+             const optional<std::string> programCacheDir = {},
+             const optional<std::string> localFontFamily = {});
     ~Renderer();
+
+    void markContextLost();
 
     void setObserver(RendererObserver*);
 
@@ -38,12 +41,14 @@ public:
     std::vector<Feature> queryRenderedFeatures(const ScreenBox& box, const RenderedQueryOptions& options = {}) const;
     std::vector<Feature> querySourceFeatures(const std::string& sourceID, const SourceQueryOptions& options = {}) const;
     AnnotationIDs queryPointAnnotations(const ScreenBox& box) const;
+    AnnotationIDs queryShapeAnnotations(const ScreenBox& box) const;
+    AnnotationIDs getAnnotationIDs(const std::vector<Feature>&) const;
 
     // Debug
     void dumpDebugLogs();
 
     // Memory
-    void onLowMemory();
+    void reduceMemoryUse();
 
 private:
     class Impl;

@@ -20,8 +20,7 @@ MGL_EXPORT
 /**
  The current location of the device. (read-only)
 
- This property contains `nil` if the map view is not currently showing the user
- location or if the user’s location has not yet been determined.
+ This property returns `nil` if the user’s location has not yet been determined.
  */
 @property (nonatomic, readonly, nullable) CLLocation *location;
 
@@ -35,7 +34,8 @@ MGL_EXPORT
  The heading of the user location. (read-only)
 
  This property is `nil` if the user location tracking mode is not
- `MGLUserTrackingModeFollowWithHeading`.
+ `MGLUserTrackingModeFollowWithHeading` or if
+ `MGLMapView.showsUserHeadingIndicator` is disabled.
  */
 @property (nonatomic, readonly, nullable) CLHeading *heading;
 

@@ -4,7 +4,6 @@
 #include <mbgl/gl/index_buffer.hpp>
 #include <mbgl/programs/programs.hpp>
 #include <mbgl/util/optional.hpp>
-#include <mbgl/util/offscreen_texture.hpp>
 
 #include <string>
 
@@ -14,19 +13,21 @@ class RenderStaticData {
 public:
     RenderStaticData(gl::Context&, float pixelRatio, const optional<std::string>& programCacheDir);
 
-    gl::VertexBuffer<FillLayoutVertex> tileVertexBuffer;
+    gl::VertexBuffer<PositionOnlyLayoutAttributes::Vertex> tileVertexBuffer;
     gl::VertexBuffer<RasterLayoutVertex> rasterVertexBuffer;
     gl::VertexBuffer<ExtrusionTextureLayoutVertex> extrusionTextureVertexBuffer;
 
     gl::IndexBuffer<gl::Triangles> quadTriangleIndexBuffer;
     gl::IndexBuffer<gl::LineStrip> tileBorderIndexBuffer;
 
-    SegmentVector<FillAttributes> tileTriangleSegments;
+    SegmentVector<BackgroundAttributes> tileTriangleSegments;
     SegmentVector<DebugAttributes> tileBorderSegments;
     SegmentVector<RasterAttributes> rasterSegments;
     SegmentVector<ExtrusionTextureAttributes> extrusionTextureSegments;
 
-    optional<OffscreenTexture> extrusionTexture;
+    optional<gl::Renderbuffer<gl::RenderbufferType::DepthComponent>> depthRenderbuffer;
+    bool has3D = false;
+    Size backendSize;
 
     Programs programs;
 

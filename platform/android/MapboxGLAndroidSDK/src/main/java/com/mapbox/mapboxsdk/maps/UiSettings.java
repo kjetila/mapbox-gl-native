@@ -3,12 +3,10 @@ package com.mapbox.mapboxsdk.maps;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.PointF;
-import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
+import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.ColorInt;
 import android.support.annotation.NonNull;
@@ -24,9 +22,8 @@ import com.mapbox.mapboxsdk.R;
 import com.mapbox.mapboxsdk.camera.CameraPosition;
 import com.mapbox.mapboxsdk.constants.MapboxConstants;
 import com.mapbox.mapboxsdk.maps.widgets.CompassView;
+import com.mapbox.mapboxsdk.utils.BitmapUtils;
 import com.mapbox.mapboxsdk.utils.ColorUtils;
-
-import java.io.ByteArrayOutputStream;
 
 /**
  * Settings for the user interface of a MapboxMap. To obtain this interface, call getUiSettings().
@@ -40,6 +37,7 @@ public final class UiSettings {
 
   private final ImageView attributionsView;
   private final int[] attributionsMargins = new int[4];
+  private AttributionDialogManager attributionDialogManager;
 
   private final View logoView;
   private final int[] logoMargins = new int[4];
@@ -94,6 +92,8 @@ public final class UiSettings {
     saveLogo(outState);
     saveAttribution(outState);
     saveZoomControl(outState);
+    saveDeselectMarkersOnTap(outState);
+    saveFocalPoint(outState);
   }
 
   void onRestoreInstanceState(@NonNull Bundle savedInstanceState) {
@@ -102,6 +102,8 @@ public final class UiSettings {
     restoreLogo(savedInstanceState);
     restoreAttribution(savedInstanceState);
     restoreZoomControl(savedInstanceState);
+    restoreDeselectMarkersOnTap(savedInstanceState);
+    restoreFocalPoint(savedInstanceState);
   }
 
   private void initialiseGestures(MapboxMapOptions options) {
@@ -170,13 +172,7 @@ public final class UiSettings {
     outState.putInt(MapboxConstants.STATE_COMPASS_MARGIN_RIGHT, getCompassMarginRight());
     outState.putBoolean(MapboxConstants.STATE_COMPASS_FADE_WHEN_FACING_NORTH, isCompassFadeWhenFacingNorth());
     outState.putByteArray(MapboxConstants.STATE_COMPASS_IMAGE_BITMAP,
-      convert(MapboxMapOptions.getBitmapFromDrawable(getCompassImage())));
-  }
-
-  private byte[] convert(Bitmap resource) {
-    ByteArrayOutputStream stream = new ByteArrayOutputStream();
-    resource.compress(Bitmap.CompressFormat.PNG, 100, stream);
-    return stream.toByteArray();
+      BitmapUtils.getByteArrayFromDrawable(getCompassImage()));
   }
 
   private void restoreCompass(Bundle savedInstanceState) {
@@ -187,12 +183,8 @@ public final class UiSettings {
       savedInstanceState.getInt(MapboxConstants.STATE_COMPASS_MARGIN_RIGHT),
       savedInstanceState.getInt(MapboxConstants.STATE_COMPASS_MARGIN_BOTTOM));
     setCompassFadeFacingNorth(savedInstanceState.getBoolean(MapboxConstants.STATE_COMPASS_FADE_WHEN_FACING_NORTH));
-    setCompassImage(decode(savedInstanceState.getByteArray(MapboxConstants.STATE_COMPASS_IMAGE_BITMAP)));
-  }
-
-  private Drawable decode(byte[] bitmap) {
-    Bitmap compass = BitmapFactory.decodeByteArray(bitmap, 0, bitmap.length);
-    return new BitmapDrawable(compassView.getResources(), compass);
+    setCompassImage(BitmapUtils.getDrawableFromByteArray(
+      compassView.getContext(), savedInstanceState.getByteArray(MapboxConstants.STATE_COMPASS_IMAGE_BITMAP)));
   }
 
   private void initialiseLogo(MapboxMapOptions options, Resources resources) {
@@ -544,6 +536,28 @@ public final class UiSettings {
     return attributionsView.getVisibility() == View.VISIBLE;
   }
 
+
+  /**
+   * Set a custom attribution dialog manager.
+   * <p>
+   * Set to null to reset to default behaviour.
+   * </p>
+   *
+   * @param attributionDialogManager the manager class used for showing attribution
+   */
+  public void setAttributionDialogManager(AttributionDialogManager attributionDialogManager) {
+    this.attributionDialogManager = attributionDialogManager;
+  }
+
+  /**
+   * Get the custom attribution dialog manager.
+   *
+   * @return the active manager class used for showing attribution
+   */
+  public AttributionDialogManager getAttributionDialogManager() {
+    return attributionDialogManager;
+  }
+
   /**
    * <p>
    * Sets the gravity of the attribution.
@@ -796,6 +810,14 @@ public final class UiSettings {
     return doubleTapGestureChangeAllowed;
   }
 
+  private void restoreDeselectMarkersOnTap(Bundle savedInstanceState) {
+    setDeselectMarkersOnTap(savedInstanceState.getBoolean(MapboxConstants.STATE_DESELECT_MARKER_ON_TAP));
+  }
+
+  private void saveDeselectMarkersOnTap(Bundle outState) {
+    outState.putBoolean(MapboxConstants.STATE_DESELECT_MARKER_ON_TAP, isDeselectMarkersOnTap());
+  }
+
   /**
    * Gets whether the markers are automatically deselected (and therefore, their infowindows
    * closed) when a map tap is detected.
@@ -875,6 +897,17 @@ public final class UiSettings {
     setDoubleTapGesturesEnabled(enabled);
   }
 
+  private void saveFocalPoint(Bundle outState) {
+    outState.putParcelable(MapboxConstants.STATE_USER_FOCAL_POINT, getFocalPoint());
+  }
+
+  private void restoreFocalPoint(Bundle savedInstanceState) {
+    PointF pointF = savedInstanceState.getParcelable(MapboxConstants.STATE_USER_FOCAL_POINT);
+    if (pointF != null) {
+      setFocalPoint(pointF);
+    }
+  }
+
   /**
    * Sets the focal point used as center for a gesture
    *
@@ -939,14 +972,16 @@ public final class UiSettings {
     initMargins[2] = right;
     initMargins[3] = bottom;
 
-    // convert inital margins with padding
-    int[] contentPadding = projection.getContentPadding();
+    // convert initial margins with padding
     FrameLayout.LayoutParams layoutParams = (FrameLayout.LayoutParams) view.getLayoutParams();
-    left += contentPadding[0];
-    top += contentPadding[1];
-    right += contentPadding[2];
-    bottom += contentPadding[3];
     layoutParams.setMargins(left, top, right, bottom);
+
+    // support RTL
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+      layoutParams.setMarginStart(left);
+      layoutParams.setMarginEnd(right);
+    }
+
     view.setLayoutParams(layoutParams);
   }
 }

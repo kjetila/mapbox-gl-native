@@ -1,18 +1,99 @@
-# Changelog for Mapbox macOS SDK
+# Changelog for Mapbox Maps SDK for macOS
 
 ## master
 
-### Styles
+### Styles and rendering
 
-* Added support for displaying geo-referenced images via the `MGLImageSource`.  [#9110](https://github.com/mapbox/mapbox-gl-native/pull/9110)
-* The previously-deprecated support for style classes has been removed. For interface compatibility, the API methods remain, but they are now non-functional.
-* Added an `overlays` property to `MGLMapView`. ([#8617](https://github.com/mapbox/mapbox-gl-native/pull/8617))
+* Added support for a new layer type: `MGLHeatmapStyleLayer`, a powerful way to visualize point data distributions using heatmaps, fully customizable through runtime styling. [#11046](https://github.com/mapbox/mapbox-gl-native/pull/11046)
+* The layout and paint properties on subclasses of `MGLStyleLayer` are now of type `NSExpression` instead of `MGLStyleValue`. A new “Predicates and Expressions” guide provides an overview of the supported operators. ([#10726](https://github.com/mapbox/mapbox-gl-native/pull/10726))
+* Added an `MGLComputedShapeSource` class that allows applications to supply vector data to a style layer on a per-tile basis. ([#9983](https://github.com/mapbox/mapbox-gl-native/pull/9983))
+* A style can now display smooth hillshading and customize its appearance at runtime using the `MGLHillshadeStyleLayer` class. Hillshading is based on a rasterized digital elevation model supplied by the `MGLRasterDEMSource` class. ([#10642](https://github.com/mapbox/mapbox-gl-native/pull/10642))
+* Properties such as `MGLSymbolStyleLayer.iconAllowsOverlap` and `MGLSymbolStyleLayer.iconIgnoresPlacement` now account for symbols in other sources. ([#10436](https://github.com/mapbox/mapbox-gl-native/pull/10436))
+* Improved the reliability of collision detection between symbols near the edges of tiles, as well as between symbols when the map is tilted. It is no longer necessary to enable `MGLSymbolStyleLayer.symbolAvoidsEdges` to prevent symbols in adjacent tiles from overlapping with each other. ([#10436](https://github.com/mapbox/mapbox-gl-native/pull/10436))
+* Symbols can fade in and out as the map pans, rotates, or tilts. ([#10436](https://github.com/mapbox/mapbox-gl-native/pull/10436))
+* Added the `MGLTileSourceOptionTileCoordinateBounds` option to create an `MGLTileSource` that only supplies tiles within a specific geographic bounding box. ([#11141](https://github.com/mapbox/mapbox-gl-native/pull/11141))
+* Fixed an issue preventing a dynamically-added `MGLRasterStyleLayer` from drawing until the map pans. ([#10270](https://github.com/mapbox/mapbox-gl-native/pull/10270))
+* Fixed an issue preventing `MGLImageSource`s from drawing on the map when the map is zoomed in and tilted. ([#10677](https://github.com/mapbox/mapbox-gl-native/pull/10677))
 
 ### Other changes
 
-* Increased the default maximum zoom level from 20 to 22. ([#9835](https://github.com/mapbox/mapbox-gl-native/pull/9835))
+* Added a Hebrew localization. ([#10967](https://github.com/mapbox/mapbox-gl-native/pull/10967))
 
-## 0.5.0
+### Snapshots
+
+* Fixed a memory leak that occurred when creating a map snapshot. ([#10585](https://github.com/mapbox/mapbox-gl-native/pull/10585))
+
+## v0.6.2
+
+* Added the `MGLTileSourceOptionTileCoordinateBounds` option to create an `MGLTileSource` that only supplies tiles within a specific geographic bounding box. ([#11141](https://github.com/mapbox/mapbox-gl-native/pull/11141))
+* Fixed an issue that caused `-[MGLMapSnapshotter pointForCoordinate:]` to return the wrong point. ([#11035](https://github.com/mapbox/mapbox-gl-native/pull/11035))
+
+## v0.6.1 - January 16, 2018
+
+This version of the Mapbox macOS SDK corresponds to version 3.7.3 of the Mapbox Maps SDK for iOS.
+
+* Fixed a crash while zooming while annotations are present on the map. ([#10791](https://github.com/mapbox/mapbox-gl-native/pull/10791))
+* CJK characters can be displayed in a locally installed font or a custom font bundled with the application, reducing map download times. Specify the font name using the `MGLIdeographicFontFamilyName` key in the application’s Info.plist file. ([#10522](https://github.com/mapbox/mapbox-gl-native/pull/10522))
+
+## v0.6.0 - December 23, 2017
+
+This version of the Mapbox macOS SDK corresponds to version 3.7.2 of the Mapbox Maps SDK for iOS.
+
+### Packaging
+
+* Renamed this SDK from Mapbox macOS SDK to Mapbox Maps SDK for macOS. ([#10610](https://github.com/mapbox/mapbox-gl-native/pull/10610), [#10793](https://github.com/mapbox/mapbox-gl-native/pull/10793))
+* Added a Bulgarian localization. ([#10309](https://github.com/mapbox/mapbox-gl-native/pull/10309))
+
+### Networking and storage
+
+* Added a new `MGLMapSnapshotter` class for capturing rendered map images from an `MGLMapView`’s camera. ([#9891](https://github.com/mapbox/mapbox-gl-native/pull/9891))
+* Reduced the time it takes to create new `MGLMapView` instances in some cases. ([#9864](https://github.com/mapbox/mapbox-gl-native/pull/9864))
+* Added support for forced cache revalidation that will eliminate flickering that was sometimes visible for certain types of tiles (e.g., traffic tiles). ([#9670](https://github.com/mapbox/mapbox-gl-native/pull/9670), [#9103](https://github.com/mapbox/mapbox-gl-native/issues/9103))
+* Improved the performance of the SDK when parsing vector tile data used to render the map. ([#9312](https://github.com/mapbox/mapbox-gl-native/pull/9312))
+
+### Styles
+
+* Added a new type of source, represented by the `MGLImageSource` class at runtime, that displays a georeferenced image. ([#9110](https://github.com/mapbox/mapbox-gl-native/pull/9110))
+* Setting a style using `MGLMapView`'s `styleURL` property now smoothly transitions from the previous style to the new style and maintains equivalent layers and sources along with their identifiers. ([#9256](https://github.com/mapbox/mapbox-gl-native/pull/9256))
+* Added `MGLCircleStyleLayer.circlePitchAlignment` and `MGLSymbolStyleLayer.iconPitchAlignment` properties to control whether circles and symbols lie flat against a tilted map. ([#9426](https://github.com/mapbox/mapbox-gl-native/pull/9426), [#9479](https://github.com/mapbox/mapbox-gl-native/pull/9479))
+* Added an `MGLSymbolStyleLayer.iconAnchor` property to control where an icon is anchored. ([#9849](https://github.com/mapbox/mapbox-gl-native/pull/9849))
+* The `maximumTextWidth` and `textLetterSpacing` properties of `MGLSymbolStyleLayer` are now compatible with `MGLSourceStyleFunction`s and `MGLCompositeStyleFunction`s, allowing data-driven styling of these properties. ([#9870](https://github.com/mapbox/mapbox-gl-native/pull/9870))
+* Improved the legibility of labels that follow lines when the map is tilted. ([#9009](https://github.com/mapbox/mapbox-gl-native/pull/9009))
+* Fixed an issue that could cause flickering when a translucent raster style layer was present. ([#9468](https://github.com/mapbox/mapbox-gl-native/pull/9468))
+* Fixed an issue that could cause antialiasing between polygons on the same layer to fail if the fill layers used data-driven styling for the fill color. ([#9699](https://github.com/mapbox/mapbox-gl-native/pull/9699))
+* The previously deprecated support for style classes has been removed. For interface compatibility, the API methods remain, but they are now non-functional.
+
+### Annotations and user interaction
+
+* Fixed several bugs and performance issues related to the use of annotations backed by `MGLAnnotationImage`s. The limits on the number and size of images and glyphs has been effectively eliminated and should now depend on hardware constraints. These fixes also apply to images used to represent icons in `MGLSymbolStyleLayer`s. ([#9213](https://github.com/mapbox/mapbox-gl-native/pull/9213))
+* Increased the default maximum zoom level from 20 to 22. ([#9835](https://github.com/mapbox/mapbox-gl-native/pull/9835))
+* Added an `overlays` property to `MGLMapView`. ([#8617](https://github.com/mapbox/mapbox-gl-native/pull/8617))
+* Fixed incorrect hit targets for `MGLAnnotationImage`-backed annotations that caused `-[MGLMapViewDelegate mapView:didSelectAnnotation:]` to be called unnecessarily. ([#10538](https://github.com/mapbox/mapbox-gl-native/pull/10538))
+* Added `-[MGLMapView cameraThatFitsShape:direction:edgePadding:]` to get a camera with zoom level and center coordinate computed to fit a shape. ([#10107](https://github.com/mapbox/mapbox-gl-native/pull/10107))
+* Added support selection of shape and polyline annotations.([#9984](https://github.com/mapbox/mapbox-gl-native/pull/9984))
+* Fixed an issue where a shape annotation callout was not displayed if the centroid was not visible. ([#10255](https://github.com/mapbox/mapbox-gl-native/pull/10255))
+
+### Other changes
+
+* Fixed distortion in the logo view on macOS 10.13 High Sierra. ([#10606](https://github.com/mapbox/mapbox-gl-native/pull/10606))
+* Fixed an issue that could cause line label rendering glitches when the line geometry is projected to a point behind the plane of the camera. ([#9865](https://github.com/mapbox/mapbox-gl-native/pull/9865))
+* Fixed an issue that could cause a crash when using `-[MGLMapView flyToCamera:completionHandler:]` and related methods with zoom levels at or near the maximum value. ([#9381](https://github.com/mapbox/mapbox-gl-native/pull/9381))
+* Fixed an issue where removing a `MGLOpenGLStyleLayer` from a map might result in a crash. ([#10765](https://github.com/mapbox/mapbox-gl-native/pull/10765))
+* Added documentation for usage of coordinate bounds that cross the anti-meridian. ([#10783](https://github.com/mapbox/mapbox-gl-native/pull/10783))
+* Removed duplicated variables in `MGLMapSnapshotter`. ([#10702](https://github.com/mapbox/mapbox-gl-native/pull/10702))
+
+## 0.5.1 - September 26, 2017
+
+This version of the Mapbox macOS SDK corresponds to version 3.6.4 of the Mapbox iOS SDK.
+
+* Added an `MGLStyle.localizesLabels` property, off by default, that localizes any Mapbox Streets–sourced symbol layer into the user’s preferred language. ([#9582](https://github.com/mapbox/mapbox-gl-native/pull/9582))
+* Fixed an issue that caused `-[MGLShapeSource featuresMatchingPredicate:]` and `-[MGLVectorSource featuresInSourceLayersWithIdentifiers:predicate:]` to always return an empty array. ([#9784](https://github.com/mapbox/mapbox-gl-native/pull/9784))
+* `MGLMapView`’s `minimumZoomLevel` and `maximumZoomLevel` properties are now available in Interface Builder’s Attributes inspector. ([#9729](https://github.com/mapbox/mapbox-gl-native/pull/9729))
+* Added a Hungarian localization. ([#9945](https://github.com/mapbox/mapbox-gl-native/pull/9945))
+* Deprecated `+[MGLStyle trafficDayStyleURL]` and `+[MGLStyle trafficNightStyleURL]` with no replacement method. To use the Traffic Day and Traffic Night styles going forward, we recommend that you use the underlying URL. ([#9918](https://github.com/mapbox/mapbox-gl-native/pull/9918))
+* Fixed an issue where stale (but still valid) map data could be ignored in offline mode. ([#10012](https://github.com/mapbox/mapbox-gl-native/pull/10012))
+
+## 0.5.0 - June 30, 2017
 
 This version of the Mapbox macOS SDK corresponds to version 3.6.0 of the Mapbox iOS SDK.
 

@@ -12,6 +12,10 @@ public:
     void bind() override {
     }
 
+    mbgl::Size getFramebufferSize() const override {
+        return mbgl::Size{};
+    }
+
     void activate() override {
         if (activateFunction) activateFunction();
     }
@@ -24,18 +28,13 @@ public:
         if (updateAssumedStateFunction) updateAssumedStateFunction();
     }
 
-    gl::ProcAddress initializeExtension(const char* ext) override {
-        if (initializeExtensionFunction) {
-            return initializeExtensionFunction(ext);
-        } else {
-            return {};
-        }
+    gl::ProcAddress getExtensionFunctionPointer(const char*) override {
+        return {};
     }
 
     std::function<void ()> activateFunction;
     std::function<void ()> deactivateFunction;
     std::function<void ()> updateAssumedStateFunction;
-    std::function<gl::ProcAddress (const char*)> initializeExtensionFunction;
 };
 
 // A scope should activate on construction
@@ -87,15 +86,15 @@ TEST(BackendScope, NestedScopes) {
 TEST(BackendScope, ChainedScopes) {
     bool activatedA = false;
     bool activatedB = false;
-    
+
     StubRendererBackend backendA;
     backendA.activateFunction = [&] { activatedA = true; };
     backendA.deactivateFunction = [&] { activatedA = false; };
-    
+
     StubRendererBackend backendB;
     backendB.activateFunction = [&] { activatedB = true; };
     backendB.deactivateFunction = [&] { activatedB = false; };
-    
+
     {
         BackendScope scopeA { backendA };
         ASSERT_TRUE(activatedA);
@@ -107,7 +106,7 @@ TEST(BackendScope, ChainedScopes) {
         ASSERT_FALSE(activatedB);
         ASSERT_TRUE(activatedA);
     }
-    
+
     ASSERT_FALSE(activatedA);
     ASSERT_FALSE(activatedB);
 }

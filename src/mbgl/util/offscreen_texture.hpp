@@ -9,16 +9,15 @@ class Context;
 class Texture;
 } // namespace gl
 
-enum class OffscreenTextureAttachment {
-    None,
-    Depth,
-};
-
 class OffscreenTexture {
 public:
     OffscreenTexture(gl::Context&,
                      Size size = { 256, 256 },
-                     OffscreenTextureAttachment type = OffscreenTextureAttachment::None);
+                     gl::TextureType type = gl::TextureType::UnsignedByte);
+    OffscreenTexture(gl::Context&,
+                     Size size,
+                     gl::Renderbuffer<gl::RenderbufferType::DepthComponent>&,
+                     gl::TextureType type = gl::TextureType::UnsignedByte);
     ~OffscreenTexture();
     OffscreenTexture(OffscreenTexture&&);
     OffscreenTexture& operator=(OffscreenTexture&&);

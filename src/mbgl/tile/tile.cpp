@@ -18,7 +18,10 @@ void Tile::setObserver(TileObserver* observer_) {
     observer = observer_;
 }
 
-void Tile::setTriedOptional() {
+void Tile::cancel() {
+}
+
+void Tile::setTriedCache() {
     triedOptional = true;
     observer->onTileChanged(*this);
 }
@@ -33,8 +36,9 @@ void Tile::queryRenderedFeatures(
         std::unordered_map<std::string, std::vector<Feature>>&,
         const GeometryCoordinates&,
         const TransformState&,
-        const RenderStyle&,
-        const RenderedQueryOptions&) {}
+        const std::vector<const RenderLayer*>&,
+        const RenderedQueryOptions&,
+        const CollisionIndex&) {}
 
 void Tile::querySourceFeatures(
         std::vector<Feature>&,

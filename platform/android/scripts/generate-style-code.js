@@ -1,8 +1,9 @@
+#!/usr/bin/env node
 'use strict';
 
 const fs = require('fs');
 const ejs = require('ejs');
-const spec = require('../../../mapbox-gl-js/src/style-spec/reference/v8');
+const spec = require('../../../scripts/style-spec');
 const _ = require('lodash');
 
 require('../../../scripts/style-code');
@@ -27,6 +28,9 @@ var layers = Object.keys(spec.layer.type.values).map((type) => {
   }, []);
 
   const paintProperties = Object.keys(spec[`paint_${type}`]).reduce((memo, name) => {
+    // disabled for now, see https://github.com/mapbox/mapbox-gl-native/issues/11172
+    if (name === 'heatmap-color') return memo;
+
     spec[`paint_${type}`][name].name = name;
     memo.push(spec[`paint_${type}`][name]);
     return memo;
@@ -110,6 +114,9 @@ global.propertyNativeType = function (property) {
   }
   if (/-(rotation|pitch|illumination)-alignment$/.test(property.name)) {
     return 'AlignmentType';
+  }
+  if (/^(text|icon)-anchor$/.test(property.name)) {
+    return 'SymbolAnchorType';
   }
   switch (property.type) {
   case 'boolean':
@@ -266,6 +273,9 @@ global.evaluatedType = function (property) {
   }
   if (/-(rotation|pitch|illumination)-alignment$/.test(property.name)) {
     return 'AlignmentType';
+  }
+  if (/^(text|icon)-anchor$/.test(property.name)) {
+    return 'SymbolAnchorType';
   }
   if (/position/.test(property.name)) {
     return 'Position';

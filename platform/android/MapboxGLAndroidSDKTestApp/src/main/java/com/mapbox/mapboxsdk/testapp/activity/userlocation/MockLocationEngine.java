@@ -5,8 +5,8 @@ import android.animation.TypeEvaluator;
 import android.animation.ValueAnimator;
 import android.location.Location;
 
-import com.mapbox.services.android.telemetry.location.LocationEngine;
-import com.mapbox.services.android.telemetry.location.LocationEngineListener;
+import com.mapbox.android.core.location.LocationEngine;
+import com.mapbox.android.core.location.LocationEngineListener;
 
 import timber.log.Timber;
 
@@ -21,12 +21,9 @@ public class MockLocationEngine extends LocationEngine {
   private static int counter;
 
   MockLocationEngine(Location start, Location end) {
-    locationAnimator = new LocationAnimator(start, end, new ValueAnimator.AnimatorUpdateListener() {
-      @Override
-      public void onAnimationUpdate(ValueAnimator animation) {
-        for (LocationEngineListener listener : locationListeners) {
-          listener.onLocationChanged((Location) animation.getAnimatedValue());
-        }
+    locationAnimator = new LocationAnimator(start, end, animation -> {
+      for (LocationEngineListener listener : locationListeners) {
+        listener.onLocationChanged((Location) animation.getAnimatedValue());
       }
     });
   }
@@ -85,6 +82,11 @@ public class MockLocationEngine extends LocationEngine {
       running = false;
       Timber.e("LOC %s", counter);
     }
+  }
+
+  @Override
+  public Type obtainType() {
+    return Type.MOCK;
   }
 
   private static class LocationAnimator extends AnimatorListenerAdapter {

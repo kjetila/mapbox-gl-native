@@ -7,6 +7,7 @@
 #include <mbgl/style/parser.hpp>
 #include <mbgl/style/sources/vector_source.hpp>
 #include <mbgl/style/sources/raster_source.hpp>
+#include <mbgl/style/sources/raster_dem_source.hpp>
 #include <mbgl/style/sources/geojson_source.hpp>
 #include <mbgl/style/sources/image_source.hpp>
 #include <mbgl/style/conversion/json.hpp>
@@ -80,7 +81,7 @@ OfflineRegionStatus OfflineDownload::getStatus() const {
         auto handleTiledSource = [&] (const variant<std::string, Tileset>& urlOrTileset, const uint16_t tileSize) {
             if (urlOrTileset.is<Tileset>()) {
                 result.requiredResourceCount +=
-                    definition.tileCover(type, tileSize, urlOrTileset.get<Tileset>().zoomRange).size();
+                    definition.tileCount(type, tileSize, urlOrTileset.get<Tileset>().zoomRange);
             } else {
                 result.requiredResourceCount += 1;
                 const auto& url = urlOrTileset.get<std::string>();
@@ -90,7 +91,7 @@ OfflineRegionStatus OfflineDownload::getStatus() const {
                     optional<Tileset> tileset = style::conversion::convertJSON<Tileset>(*sourceResponse->data, error);
                     if (tileset) {
                         result.requiredResourceCount +=
-                            definition.tileCover(type, tileSize, (*tileset).zoomRange).size();
+                            definition.tileCount(type, tileSize, (*tileset).zoomRange);
                     }
                 } else {
                     result.requiredResourceCountIsPrecise = false;
@@ -108,6 +109,12 @@ OfflineRegionStatus OfflineDownload::getStatus() const {
         case SourceType::Raster: {
             const auto& rasterSource = *source->as<RasterSource>();
             handleTiledSource(rasterSource.getURLOrTileset(), rasterSource.getTileSize());
+            break;
+        }
+        
+        case SourceType::RasterDEM: {
+            const auto& rasterDEMSource = *source->as<RasterDEMSource>();
+            handleTiledSource(rasterDEMSource.getURLOrTileset(), rasterDEMSource.getTileSize());
             break;
         }
 
@@ -129,6 +136,7 @@ OfflineRegionStatus OfflineDownload::getStatus() const {
 
         case SourceType::Video:
         case SourceType::Annotations:
+        case SourceType::CustomVector:
             break;
         }
     }
@@ -194,6 +202,12 @@ void OfflineDownload::activateDownload() {
                 handleTiledSource(rasterSource.getURLOrTileset(), rasterSource.getTileSize());
                 break;
             }
+            
+            case SourceType::RasterDEM: {
+                const auto& rasterDEMSource = *source->as<RasterDEMSource>();
+                handleTiledSource(rasterDEMSource.getURLOrTileset(), rasterDEMSource.getTileSize());
+                break;
+            }
 
             case SourceType::GeoJSON: {
                 const auto& geojsonSource = *source->as<GeoJSONSource>();
@@ -214,6 +228,7 @@ void OfflineDownload::activateDownload() {
 
             case SourceType::Video:
             case SourceType::Annotations:
+            case SourceType::CustomVector:
                 break;
             }
         }

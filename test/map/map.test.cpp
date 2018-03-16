@@ -1,5 +1,6 @@
 #include <mbgl/test/util.hpp>
 #include <mbgl/test/stub_file_source.hpp>
+#include <mbgl/test/stub_map_observer.hpp>
 #include <mbgl/test/fake_file_source.hpp>
 #include <mbgl/test/fixture_log_observer.hpp>
 
@@ -23,45 +24,6 @@ using namespace mbgl;
 using namespace mbgl::style;
 using namespace std::literals::string_literals;
 
-class StubMapObserver : public MapObserver {
-public:
-    void onWillStartLoadingMap() final {
-        if (onWillStartLoadingMapCallback) {
-            onWillStartLoadingMapCallback();
-        }
-    }
-    
-    void onDidFinishLoadingMap() final {
-        if (onDidFinishLoadingMapCallback) {
-            onDidFinishLoadingMapCallback();
-        }
-    }
-    
-    void onDidFailLoadingMap(std::exception_ptr) final {
-        if (didFailLoadingMapCallback) {
-            didFailLoadingMapCallback();
-        }
-    }
-    
-    void onDidFinishLoadingStyle() final {
-        if (didFinishLoadingStyleCallback) {
-            didFinishLoadingStyleCallback();
-        }
-    }
-
-    void onDidFinishRenderingFrame(RenderMode mode) final {
-        if (didFinishRenderingFrame) {
-            didFinishRenderingFrame(mode);
-        }
-    }
-
-    std::function<void()> onWillStartLoadingMapCallback;
-    std::function<void()> onDidFinishLoadingMapCallback;
-    std::function<void()> didFailLoadingMapCallback;
-    std::function<void()> didFinishLoadingStyleCallback;
-    std::function<void(RenderMode)> didFinishRenderingFrame;
-};
-
 template <class FileSource = StubFileSource>
 class MapTest {
 public:
@@ -72,14 +34,14 @@ public:
     HeadlessFrontend frontend;
     Map map;
 
-    MapTest(float pixelRatio = 1, MapMode mode = MapMode::Still)
+    MapTest(float pixelRatio = 1, MapMode mode = MapMode::Static)
         : frontend(pixelRatio, fileSource, threadPool)
         , map(frontend, observer, frontend.getSize(), pixelRatio, fileSource, threadPool, mode) {
     }
 
     template <typename T = FileSource>
     MapTest(const std::string& cachePath, const std::string& assetRoot,
-            float pixelRatio = 1, MapMode mode = MapMode::Still,
+            float pixelRatio = 1, MapMode mode = MapMode::Static,
             typename std::enable_if<std::is_same<T, DefaultFileSource>::value>::type* = 0)
             : fileSource { cachePath, assetRoot }
             , frontend(pixelRatio, fileSource, threadPool)
@@ -109,6 +71,32 @@ TEST(Map, LatLngBoundsToCamera) {
 
     CameraOptions virtualCamera = test.map.cameraForLatLngBounds(bounds, {});
     ASSERT_TRUE(bounds.contains(*virtualCamera.center));
+    EXPECT_NEAR(*virtualCamera.zoom, 1.55467, 1e-5);
+}
+
+TEST(Map, LatLngBoundsToCameraWithAngle) {
+    MapTest<> test;
+
+    test.map.setLatLngZoom({ 40.712730, -74.005953 }, 16.0);
+
+    LatLngBounds bounds = LatLngBounds::hull({15.68169,73.499857}, {53.560711, 134.77281});
+
+    CameraOptions virtualCamera = test.map.cameraForLatLngBounds(bounds, {}, 35);
+    ASSERT_TRUE(bounds.contains(*virtualCamera.center));
+    EXPECT_NEAR(*virtualCamera.zoom, 1.21385, 1e-5);
+    EXPECT_DOUBLE_EQ(virtualCamera.angle.value_or(0), -35 * util::DEG2RAD);
+}
+
+TEST(Map, LatLngsToCamera) {
+    MapTest<> test;
+
+    std::vector<LatLng> latLngs{{ 40.712730, 74.005953 }, {15.68169,73.499857}, {30.82678, 83.4082}};
+
+    CameraOptions virtualCamera = test.map.cameraForLatLngs(latLngs, {}, 23);
+    EXPECT_DOUBLE_EQ(virtualCamera.angle.value_or(0), -23 * util::DEG2RAD);
+    EXPECT_NEAR(virtualCamera.zoom.value_or(0), 2.75434, 1e-5);
+    EXPECT_NEAR(virtualCamera.center->latitude(), 28.49288, 1e-5);
+    EXPECT_NEAR(virtualCamera.center->longitude(), 74.97437, 1e-5);
 }
 
 TEST(Map, CameraToLatLngBounds) {
@@ -226,7 +214,7 @@ TEST(Map, DoubleStyleLoad) {
 }
 
 TEST(Map, StyleFresh) {
-    // The map should not revalidate fresh styles.
+    // The map should continue to revalidate fresh styles.
 
     MapTest<FakeFileSource> test;
 
@@ -238,11 +226,11 @@ TEST(Map, StyleFresh) {
     response.expires = Timestamp::max();
 
     test.fileSource.respond(Resource::Style, response);
-    EXPECT_EQ(0u, test.fileSource.requests.size());
+    EXPECT_EQ(1u, test.fileSource.requests.size());
 }
 
 TEST(Map, StyleExpired) {
-    // The map should allow expired styles to be revalidated, so long as no mutations are made.
+    // The map should allow expired styles to be revalidated until we get a fresh style.
 
     using namespace std::chrono_literals;
 
@@ -258,11 +246,22 @@ TEST(Map, StyleExpired) {
     test.fileSource.respond(Resource::Style, response);
     EXPECT_EQ(1u, test.fileSource.requests.size());
 
+    // Mutate layer. From now on, sending a response to the style won't overwrite it anymore, but
+    // we should continue to wait for a fresh response.
     test.map.getStyle().addLayer(std::make_unique<style::BackgroundLayer>("bg"));
     EXPECT_EQ(1u, test.fileSource.requests.size());
 
+    // Send another expired response, and confirm that we didn't overwrite the style, but continue
+    // to wait for a fresh response.
     test.fileSource.respond(Resource::Style, response);
-    EXPECT_EQ(0u, test.fileSource.requests.size());
+    EXPECT_EQ(1u, test.fileSource.requests.size());
+    EXPECT_NE(nullptr, test.map.getStyle().getLayer("bg"));
+
+    // Send a fresh response, and confirm that we didn't overwrite the style, but continue to wait
+    // for a fresh response.
+    response.expires = util::now() + 1h;
+    test.fileSource.respond(Resource::Style, response);
+    EXPECT_EQ(1u, test.fileSource.requests.size());
     EXPECT_NE(nullptr, test.map.getStyle().getLayer("bg"));
 }
 
@@ -326,7 +325,7 @@ TEST(Map, StyleEarlyMutation) {
     response.data = std::make_shared<std::string>(util::read_file("test/fixtures/api/water.json"));
     test.fileSource.respond(Resource::Style, response);
 
-    EXPECT_EQ(0u, test.fileSource.requests.size());
+    EXPECT_EQ(1u, test.fileSource.requests.size());
     EXPECT_NE(nullptr, test.map.getStyle().getLayer("water"));
 }
 
@@ -334,7 +333,7 @@ TEST(Map, MapLoadingSignal) {
     MapTest<> test;
 
     bool emitted = false;
-    test.observer.onWillStartLoadingMapCallback = [&]() {
+    test.observer.willStartLoadingMapCallback = [&]() {
         emitted = true;
     };
     test.map.getStyle().loadJSON(util::read_file("test/fixtures/api/empty.json"));
@@ -344,7 +343,7 @@ TEST(Map, MapLoadingSignal) {
 TEST(Map, MapLoadedSignal) {
     MapTest<> test { 1, MapMode::Continuous };
 
-    test.observer.onDidFinishLoadingMapCallback = [&]() {
+    test.observer.didFinishLoadingMapCallback = [&]() {
         test.runLoop.stop();
     };
 
@@ -570,7 +569,7 @@ TEST(Map, TEST_DISABLED_ON_CI(ContinuousRendering)) {
     HeadlessFrontend frontend(pixelRatio, fileSource, threadPool);
 
     StubMapObserver observer;
-    observer.didFinishRenderingFrame = [&] (MapObserver::RenderMode) {
+    observer.didFinishRenderingFrameCallback = [&] (MapObserver::RenderMode) {
         // Start a timer that ends the test one second from now. If we are continuing to render
         // indefinitely, the timer will be constantly restarted and never trigger. Instead, the
         // emergency shutoff above will trigger, failing the test.
@@ -583,4 +582,46 @@ TEST(Map, TEST_DISABLED_ON_CI(ContinuousRendering)) {
     map.getStyle().loadJSON(util::read_file("test/fixtures/api/water.json"));
 
     runLoop.run();
+}
+
+TEST(Map, NoContentTiles) {
+    MapTest<DefaultFileSource> test {":memory:", "."};
+
+    using namespace std::chrono_literals;
+
+    // Insert a 204 No Content response for the 0/0/0 tile
+    Response response;
+    response.noContent = true;
+    response.expires = util::now() + 1h;
+    test.fileSource.put(Resource::tile("http://example.com/{z}-{x}-{y}.vector.pbf", 1.0, 0, 0, 0,
+                                       Tileset::Scheme::XYZ),
+                        response);
+
+    test.map.getStyle().loadJSON(R"STYLE({
+      "version": 8,
+      "name": "Water",
+      "sources": {
+        "mapbox": {
+          "type": "vector",
+          "tiles": ["http://example.com/{z}-{x}-{y}.vector.pbf"]
+        }
+      },
+      "layers": [{
+        "id": "background",
+        "type": "background",
+        "paint": {
+          "background-color": "red"
+        }
+      }, {
+        "id": "water",
+        "type": "fill",
+        "source": "mapbox",
+        "source-layer": "water"
+      }]
+    })STYLE");
+
+    test::checkImage("test/fixtures/map/nocontent",
+                     test.frontend.render(test.map),
+                     0.0015,
+                     0.1);
 }

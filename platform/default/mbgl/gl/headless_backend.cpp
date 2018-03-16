@@ -1,5 +1,4 @@
 #include <mbgl/gl/headless_backend.hpp>
-#include <mbgl/gl/headless_display.hpp>
 #include <mbgl/gl/context.hpp>
 #include <mbgl/renderer/backend_scope.hpp>
 
@@ -32,22 +31,24 @@ HeadlessBackend::~HeadlessBackend() {
     context.reset();
 }
 
+gl::ProcAddress HeadlessBackend::getExtensionFunctionPointer(const char* name) {
+    assert(impl);
+    return impl->getExtensionFunctionPointer(name);
+}
+
 void HeadlessBackend::activate() {
     active = true;
 
-    if (!hasContext()) {
-        if (!hasDisplay()) {
-            throw std::runtime_error("Display is not set");
-        }
-        createContext();
+    if (!impl) {
+        createImpl();
     }
 
-    assert(hasContext());
+    assert(impl);
     impl->activateContext();
 }
 
 void HeadlessBackend::deactivate() {
-    assert(hasContext());
+    assert(impl);
     impl->deactivateContext();
     active = false;
 }
@@ -62,6 +63,10 @@ void HeadlessBackend::bind() {
     context_.bindFramebuffer = view->framebuffer.framebuffer;
     context_.scissorTest = false;
     context_.viewport = { 0, 0, size };
+}
+
+Size HeadlessBackend::getFramebufferSize() const {
+    return size;
 }
 
 void HeadlessBackend::updateAssumedState() {

@@ -26,25 +26,26 @@ public:
     std::unordered_map<std::string, std::vector<Feature>>
     queryRenderedFeatures(const ScreenLineString& geometry,
                           const TransformState& transformState,
-                          const RenderStyle& style,
-                          const RenderedQueryOptions& options) const final;
+                          const std::vector<const RenderLayer*>& layers,
+                          const RenderedQueryOptions& options,
+                          const CollisionIndex& collisionIndex) const final;
 
     std::vector<Feature>
     querySourceFeatures(const SourceQueryOptions&) const final;
 
-    void onLowMemory() final;
+    void reduceMemoryUse() final;
     void dumpDebugLogs() const final;
 
 private:
     const style::RasterSource::Impl& impl() const;
 
     TilePyramid tilePyramid;
-    optional<std::vector<std::string>> tileURLTemplates;
+    optional<Tileset> tileset;
 };
 
 template <>
 inline bool RenderSource::is<RenderRasterSource>() const {
-    return baseImpl->type == SourceType::Raster;
+    return baseImpl->type == style::SourceType::Raster;
 }
 
 } // namespace mbgl

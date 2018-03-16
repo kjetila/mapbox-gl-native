@@ -489,24 +489,6 @@ public class RasterLayerTest extends BaseActivityTest {
   }
 
   @Test
-  public void testRasterFadeDurationTransition() {
-    validateTestSetup();
-    setupLayer();
-    Timber.i("raster-fade-durationTransitionOptions");
-    invoke(mapboxMap, new MapboxMapAction.OnInvokeActionListener() {
-      @Override
-      public void onInvokeAction(UiController uiController, MapboxMap mapboxMap) {
-        assertNotNull(layer);
-
-        // Set and Get
-        TransitionOptions options = new TransitionOptions(300, 100);
-        layer.setRasterFadeDurationTransition(options);
-        assertEquals(layer.getRasterFadeDurationTransition(), options);
-      }
-    });
-  }
-
-  @Test
   public void testRasterFadeDurationAsConstant() {
     validateTestSetup();
     setupLayer();

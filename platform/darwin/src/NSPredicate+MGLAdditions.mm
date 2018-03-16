@@ -1,6 +1,7 @@
 #import "NSPredicate+MGLAdditions.h"
 
 #import "MGLValueEvaluator.h"
+#import "MGLStyleValue_Private.h"
 
 class FilterEvaluator {
 public:
@@ -194,6 +195,11 @@ public:
     NSPredicate *operator()(mbgl::style::NotHasIdentifierFilter filter) {
         return [NSPredicate predicateWithFormat:@"%K == nil", @"$id"];
     }
+    
+    NSPredicate *operator()(mbgl::style::ExpressionFilter filter) {
+        id jsonObject = MGLJSONObjectFromMBGLExpression(*filter.expression);
+        return [NSPredicate mgl_predicateWithJSONObject:jsonObject];
+    }
 };
 
 @implementation NSPredicate (MGLAdditions)
@@ -225,6 +231,97 @@ public:
 {
     FilterEvaluator evaluator;
     return mbgl::style::Filter::visit(filter, evaluator);
+}
+
+@end
+
+@implementation NSPredicate (MGLExpressionAdditions)
+
+NSArray *MGLSubpredicatesWithJSONObjects(NSArray *objects) {
+    NSMutableArray *subpredicates = [NSMutableArray arrayWithCapacity:objects.count];
+    for (id object in objects) {
+        NSPredicate *predicate = [NSPredicate mgl_predicateWithJSONObject:object];
+        [subpredicates addObject:predicate];
+    }
+    return subpredicates;
+}
+
++ (instancetype)mgl_predicateWithJSONObject:(id)object {
+    if ([object isEqual:@YES]) {
+        return [NSPredicate predicateWithValue:YES];
+    }
+    if ([object isEqual:@NO]) {
+        return [NSPredicate predicateWithValue:NO];
+    }
+    
+    NSAssert([object isKindOfClass:[NSArray class]], @"Condition for case expression should be an expression.");
+    NSArray *objects = (NSArray *)object;
+    NSString *op = objects.firstObject;
+    
+    if ([op isEqualToString:@"=="]) {
+        NSArray *subexpressions = MGLSubexpressionsWithJSONObjects([objects subarrayWithRange:NSMakeRange(1, objects.count - 1)]);
+        return [NSPredicate predicateWithFormat:@"%@ == %@" argumentArray:subexpressions];
+    }
+    if ([op isEqualToString:@"!="]) {
+        NSArray *subexpressions = MGLSubexpressionsWithJSONObjects([objects subarrayWithRange:NSMakeRange(1, objects.count - 1)]);
+        return [NSPredicate predicateWithFormat:@"%@ != %@" argumentArray:subexpressions];
+    }
+    if ([op isEqualToString:@"<"]) {
+        NSArray *subexpressions = MGLSubexpressionsWithJSONObjects([objects subarrayWithRange:NSMakeRange(1, objects.count - 1)]);
+        return [NSPredicate predicateWithFormat:@"%@ < %@" argumentArray:subexpressions];
+    }
+    if ([op isEqualToString:@"<="]) {
+        NSArray *subexpressions = MGLSubexpressionsWithJSONObjects([objects subarrayWithRange:NSMakeRange(1, objects.count - 1)]);
+        return [NSPredicate predicateWithFormat:@"%@ <= %@" argumentArray:subexpressions];
+    }
+    if ([op isEqualToString:@">"]) {
+        NSArray *subexpressions = MGLSubexpressionsWithJSONObjects([objects subarrayWithRange:NSMakeRange(1, objects.count - 1)]);
+        return [NSPredicate predicateWithFormat:@"%@ > %@" argumentArray:subexpressions];
+    }
+    if ([op isEqualToString:@">="]) {
+        NSArray *subexpressions = MGLSubexpressionsWithJSONObjects([objects subarrayWithRange:NSMakeRange(1, objects.count - 1)]);
+        return [NSPredicate predicateWithFormat:@"%K >= %@" argumentArray:subexpressions];
+    }
+    if ([op isEqualToString:@"!"]) {
+        NSArray *subpredicates = MGLSubpredicatesWithJSONObjects([objects subarrayWithRange:NSMakeRange(1, objects.count - 1)]);
+        if (subpredicates.count > 1) {
+            NSCompoundPredicate *predicate = [NSCompoundPredicate orPredicateWithSubpredicates:subpredicates];
+            return [NSCompoundPredicate notPredicateWithSubpredicate:predicate];
+        }
+        if (subpredicates.count) {
+            return [NSCompoundPredicate notPredicateWithSubpredicate:subpredicates.firstObject];
+        }
+        return [NSPredicate predicateWithValue:YES];
+    }
+    if ([op isEqualToString:@"all"]) {
+        NSArray *subpredicates = MGLSubpredicatesWithJSONObjects([objects subarrayWithRange:NSMakeRange(1, objects.count - 1)]);
+        return [NSCompoundPredicate andPredicateWithSubpredicates:subpredicates];
+    }
+    if ([op isEqualToString:@"any"]) {
+        NSArray *subpredicates = MGLSubpredicatesWithJSONObjects([objects subarrayWithRange:NSMakeRange(1, objects.count - 1)]);
+        return [NSCompoundPredicate orPredicateWithSubpredicates:subpredicates];
+    }
+    
+    NSAssert(NO, @"Unrecognized expression conditional operator %@.", op);
+    return nil;
+}
+
+- (id)mgl_jsonExpressionObject {
+    if ([self isEqual:[NSPredicate predicateWithValue:YES]]) {
+        return @YES;
+    }
+    if ([self isEqual:[NSPredicate predicateWithValue:NO]]) {
+        return @NO;
+    }
+    
+    if ([self.predicateFormat hasPrefix:@"BLOCKPREDICATE("]) {
+        [NSException raise:NSInvalidArgumentException
+                    format:@"Block-based predicates are not supported."];
+    }
+    
+    [NSException raise:NSInvalidArgumentException
+                format:@"Unrecognized predicate type."];
+    return nil;
 }
 
 @end

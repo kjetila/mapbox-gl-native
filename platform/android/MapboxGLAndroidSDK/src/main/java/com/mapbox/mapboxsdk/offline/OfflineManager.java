@@ -149,8 +149,8 @@ public class OfflineManager {
    *
    * @param callback the callback to be invoked
    */
-  public void listOfflineRegions(@NonNull
-                                 final ListOfflineRegionsCallback callback) {
+  public void listOfflineRegions(@NonNull final ListOfflineRegionsCallback callback) {
+    fileSource.activate();
     listOfflineRegions(fileSource, new ListOfflineRegionsCallback() {
 
       @Override
@@ -158,6 +158,7 @@ public class OfflineManager {
         getHandler().post(new Runnable() {
           @Override
           public void run() {
+            fileSource.deactivate();
             callback.onList(offlineRegions);
           }
         });
@@ -168,6 +169,7 @@ public class OfflineManager {
         getHandler().post(new Runnable() {
           @Override
           public void run() {
+            fileSource.deactivate();
             callback.onError(error);
           }
         });
@@ -202,6 +204,7 @@ public class OfflineManager {
     }
 
     ConnectivityReceiver.instance(context).activate();
+    FileSource.getInstance(context).activate();
     createOfflineRegion(fileSource, definition, metadata, new CreateOfflineRegionCallback() {
 
       @Override
@@ -210,6 +213,7 @@ public class OfflineManager {
           @Override
           public void run() {
             ConnectivityReceiver.instance(context).deactivate();
+            FileSource.getInstance(context).deactivate();
             callback.onCreate(offlineRegion);
           }
         });
@@ -221,6 +225,7 @@ public class OfflineManager {
           @Override
           public void run() {
             ConnectivityReceiver.instance(context).deactivate();
+            FileSource.getInstance(context).deactivate();
             callback.onError(error);
           }
         });
@@ -241,6 +246,7 @@ public class OfflineManager {
   /**
    * Changing or bypassing this limit without permission from Mapbox is prohibited
    * by the Mapbox Terms of Service.
+   *
    * @param limit the new tile count limit.
    */
   public native void setOfflineMapboxTileCountLimit(long limit);

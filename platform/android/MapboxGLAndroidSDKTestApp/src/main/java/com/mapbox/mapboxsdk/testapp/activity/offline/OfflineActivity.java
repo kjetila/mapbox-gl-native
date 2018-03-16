@@ -1,7 +1,6 @@
 package com.mapbox.mapboxsdk.testapp.activity.offline;
 
 import android.os.Bundle;
-import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.text.TextUtils;
 import android.view.View;
@@ -15,10 +14,8 @@ import com.mapbox.mapboxsdk.camera.CameraUpdateFactory;
 import com.mapbox.mapboxsdk.constants.Style;
 import com.mapbox.mapboxsdk.geometry.LatLng;
 import com.mapbox.mapboxsdk.geometry.LatLngBounds;
-import com.mapbox.mapboxsdk.http.HttpRequestUtil;
 import com.mapbox.mapboxsdk.maps.MapView;
 import com.mapbox.mapboxsdk.maps.MapboxMap;
-import com.mapbox.mapboxsdk.maps.OnMapReadyCallback;
 import com.mapbox.mapboxsdk.offline.OfflineManager;
 import com.mapbox.mapboxsdk.offline.OfflineRegion;
 import com.mapbox.mapboxsdk.offline.OfflineRegionError;
@@ -69,7 +66,6 @@ public class OfflineActivity extends AppCompatActivity
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
-    HttpRequestUtil.setLogEnabled(false);
     setContentView(R.layout.activity_offline);
 
     // You can use Mapbox.setConnected(Boolean) to manually set the connectivity
@@ -82,21 +78,18 @@ public class OfflineActivity extends AppCompatActivity
     mapView = (MapView) findViewById(R.id.mapView);
     mapView.setStyleUrl(STYLE_URL);
     mapView.onCreate(savedInstanceState);
-    mapView.getMapAsync(new OnMapReadyCallback() {
-      @Override
-      public void onMapReady(@NonNull MapboxMap mapboxMap) {
-        Timber.d("Map is ready");
-        OfflineActivity.this.mapboxMap = mapboxMap;
+    mapView.getMapAsync(mapboxMap -> {
+      Timber.d("Map is ready");
+      OfflineActivity.this.mapboxMap = mapboxMap;
 
-        // Set initial position to UNHQ in NYC
-        mapboxMap.moveCamera(CameraUpdateFactory.newCameraPosition(
-          new CameraPosition.Builder()
-            .target(new LatLng(40.749851, -73.967966))
-            .zoom(14)
-            .bearing(0)
-            .tilt(0)
-            .build()));
-      }
+      // Set initial position to UNHQ in NYC
+      mapboxMap.moveCamera(CameraUpdateFactory.newCameraPosition(
+        new CameraPosition.Builder()
+          .target(new LatLng(40.749851, -73.967966))
+          .zoom(14)
+          .bearing(0)
+          .tilt(0)
+          .build()));
     });
 
     // The progress bar
@@ -104,20 +97,10 @@ public class OfflineActivity extends AppCompatActivity
 
     // Set up button listeners
     downloadRegion = (Button) findViewById(R.id.button_download_region);
-    downloadRegion.setOnClickListener(new View.OnClickListener() {
-      @Override
-      public void onClick(View view) {
-        handleDownloadRegion();
-      }
-    });
+    downloadRegion.setOnClickListener(view -> handleDownloadRegion());
 
     listRegions = (Button) findViewById(R.id.button_list_regions);
-    listRegions.setOnClickListener(new View.OnClickListener() {
-      @Override
-      public void onClick(View view) {
-        handleListRegions();
-      }
-    });
+    listRegions.setOnClickListener(view -> handleListRegions());
 
     // Set up the OfflineManager
     offlineManager = OfflineManager.getInstance(this);
@@ -157,7 +140,6 @@ public class OfflineActivity extends AppCompatActivity
   protected void onDestroy() {
     super.onDestroy();
     mapView.onDestroy();
-    HttpRequestUtil.setLogEnabled(true);
   }
 
   @Override
@@ -267,6 +249,7 @@ public class OfflineActivity extends AppCompatActivity
         if (status.isComplete()) {
           // Download complete
           endProgress("Region downloaded successfully.");
+          offlineRegion.setDownloadState(OfflineRegion.STATE_INACTIVE);
           offlineRegion.setObserver(null);
           return;
         } else if (status.isRequiredResourceCountPrecise()) {
@@ -284,11 +267,13 @@ public class OfflineActivity extends AppCompatActivity
       @Override
       public void onError(OfflineRegionError error) {
         Timber.e("onError: %s, %s", error.getReason(), error.getMessage());
+        offlineRegion.setDownloadState(OfflineRegion.STATE_INACTIVE);
       }
 
       @Override
       public void mapboxTileCountLimitExceeded(long limit) {
         Timber.e("Mapbox tile count limit exceeded: %s", limit);
+        offlineRegion.setDownloadState(OfflineRegion.STATE_INACTIVE);
       }
     });
 

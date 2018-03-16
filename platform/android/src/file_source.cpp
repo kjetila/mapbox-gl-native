@@ -8,8 +8,6 @@
 #include "asset_manager_file_source.hpp"
 #include "jni/generic_global_ref_deleter.hpp"
 
-#include <string>
-
 namespace mbgl {
 namespace android {
 
@@ -64,6 +62,32 @@ void FileSource::setResourceTransform(jni::JNIEnv& env, jni::Object<FileSource::
     }
 }
 
+void FileSource::resume(jni::JNIEnv&) {
+    if (!activationCounter) {
+        activationCounter = optional<int>(1) ;
+        return;
+    }
+
+    activationCounter.value()++;
+    if (activationCounter == 1) {
+       fileSource->resume();
+    }
+}
+
+void FileSource::pause(jni::JNIEnv&) {
+    activationCounter.value()--;
+    if (activationCounter == 0) {
+        fileSource->pause();
+    }
+}
+
+jni::jboolean FileSource::isResumed(jni::JNIEnv&) {
+    if (activationCounter) {
+       return  (jboolean) (activationCounter > 0);
+    }
+    return (jboolean) false;
+}
+
 jni::Class<FileSource> FileSource::javaClass;
 
 FileSource* FileSource::getNativePeer(jni::JNIEnv& env, jni::Object<FileSource> jFileSource) {
@@ -93,7 +117,10 @@ void FileSource::registerNative(jni::JNIEnv& env) {
         METHOD(&FileSource::getAccessToken, "getAccessToken"),
         METHOD(&FileSource::setAccessToken, "setAccessToken"),
         METHOD(&FileSource::setAPIBaseUrl, "setApiBaseUrl"),
-        METHOD(&FileSource::setResourceTransform, "setResourceTransform")
+        METHOD(&FileSource::setResourceTransform, "setResourceTransform"),
+        METHOD(&FileSource::resume, "activate"),
+        METHOD(&FileSource::pause, "deactivate"),
+        METHOD(&FileSource::isResumed, "isActivated")
     );
 }
 
@@ -105,8 +132,11 @@ jni::Class<FileSource::ResourceTransformCallback> FileSource::ResourceTransformC
 std::string FileSource::ResourceTransformCallback::onURL(jni::JNIEnv& env, jni::Object<FileSource::ResourceTransformCallback> callback, int kind, std::string url_) {
     static auto method = FileSource::ResourceTransformCallback::javaClass.GetMethod<jni::String (jni::jint, jni::String)>(env, "onURL");
     auto url = jni::Make<jni::String>(env, url_);
+
     url = callback.Call(env, method, kind, url);
-    return jni::Make<std::string>(env, url);
+    auto urlStr = jni::Make<std::string>(env, url);
+    jni::DeleteLocalRef(env, url);
+    return urlStr;
 }
 
 } // namespace android

@@ -30,7 +30,7 @@ TEST(API, ZoomHistory) {
 
     HeadlessFrontend frontend { pixelRatio, fileSource, threadPool };
     auto map = std::make_unique<Map>(frontend, MapObserver::nullObserver(), frontend.getSize(),
-                                     pixelRatio, fileSource, threadPool, MapMode::Still);
+                                     pixelRatio, fileSource, threadPool, MapMode::Static);
 
     EXPECT_TRUE(map);
 
@@ -60,6 +60,12 @@ TEST(API, ZoomHistory) {
     frontend.render(*map);
 
     // ZoomHistory.lastIntegerZoom should be 0.
+    map->setZoom(0.5);
+    test::checkImage("test/fixtures/zoom_history", frontend.render(*map), 0.0002);
+
+    map->setZoom(1.0);
+    frontend.render(*map);
+
     map->setZoom(0.5);
     test::checkImage("test/fixtures/zoom_history", frontend.render(*map), 0.0002);
 }
