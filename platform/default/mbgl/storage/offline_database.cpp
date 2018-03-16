@@ -628,13 +628,39 @@ OfflineRegionMetadata OfflineDatabase::updateMetadata(const int64_t regionID, co
 }
 
 void OfflineDatabase::deleteRegion(OfflineRegion&& region) {
+    db->exec("PRAGMA foreign_keys = OFF");
+
     // clang-format off
-    Statement stmt = getStatement(
+    Statement stmt1 = getStatement(
+        "DELETE FROM tiles WHERE id in ("
+        "  SELECT tile_id from region_tiles where region_id = ?1"
+        ") and id not in ("
+        "  SELECT tile_id from region_tiles where region_id != ?2"
+        ")"
+    );
+    // clang-format on
+    
+    stmt1->bind(1, region.getID());
+    stmt1->bind(2, region.getID());
+    stmt1->run();
+
+    // clang-format off
+    Statement stmt3 = getStatement(
+        "DELETE FROM region_tiles WHERE region_id = ?");
+    // clang-format on
+    
+    stmt3->bind(1, region.getID());
+    stmt3->run();
+    
+    // clang-format off
+    Statement stmt5 = getStatement(
         "DELETE FROM regions WHERE id = ?");
     // clang-format on
 
-    stmt->bind(1, region.getID());
-    stmt->run();
+    stmt5->bind(1, region.getID());
+    stmt5->run();
+    
+    db->exec("PRAGMA foreign_keys = ON");
 
     evict(0);
     db->exec("PRAGMA incremental_vacuum");

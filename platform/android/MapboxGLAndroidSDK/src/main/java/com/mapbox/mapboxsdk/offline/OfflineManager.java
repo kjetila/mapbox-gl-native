@@ -259,10 +259,10 @@ public interface PutOfflineCallback {
   private native void createOfflineRegion(FileSource fileSource, OfflineRegionDefinition definition,
                                           byte[] metadata, CreateOfflineRegionCallback callback);
 
-  public native void putResourceWithUrl(String url, byte[] data, boolean compressed, OfflineRegion region, PutOfflineCallback callback);
+  public native void putResourceWithUrl(String url, byte[] data, boolean compressed, long regionId, PutOfflineCallback callback);
  
   public native void putTileWithUrlTemplate(String url, float pixelRatio,
-                                                int x, int y, int z, byte[] data, boolean compressed, OfflineRegion region, PutOfflineCallback callback);
+                                                int x, int y, int z, byte[] data, boolean compressed, long regionId, PutOfflineCallback callback);
 
   public native void clear();
 
