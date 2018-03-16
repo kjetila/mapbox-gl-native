@@ -74,7 +74,7 @@ public:
 
     void listOfflineRegions(jni::JNIEnv&, jni::Object<FileSource>, jni::Object<ListOfflineRegionsCallback> callback);
     
-    void putResourceWithUrl(jni::JNIEnv&, jni::String url_, jni::Array<jni::jbyte> arr, jboolean compressed, jlong regionId, jni::Object<PutOfflineCallback> callback_);
+    void putResourceWithUrl(jni::JNIEnv&, jni::String url_, jni::Array<jni::jbyte> arr, jboolean compressed, jni::Object<OfflineRegion> region_, jni::Object<PutOfflineCallback> callback_);
     
     void putTileWithUrlTemplate(jni::JNIEnv&,       
                              jni::String urlTemplate_,
@@ -84,7 +84,7 @@ public:
                              jint z, 
                              jni::Array<jni::jbyte> arr,
                              jboolean compressed,
-                             jlong regionId,
+                             jni::Object<OfflineRegion> region_,
                              jni::Object<PutOfflineCallback> callback_);
 
     void createOfflineRegion(jni::JNIEnv&,
