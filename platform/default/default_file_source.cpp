@@ -168,7 +168,22 @@ public:
             }
         }
     }
-
+void startPutRegionResource(const int64_t regionID, const Resource& resource, const Response&  response, const bool compressed, std::function<void (std::exception_ptr)> callback) {
+         try {
+            offlineDatabase->putRegionResource(regionID, resource, response, compressed);
+             callback({});
+         } catch (...) {
+             callback(std::current_exception());
+         }
+    }
+void startPut(const Resource& resource, const Response& response, std::function<void (std::exception_ptr)> callback) {
+         try {
+             offlineDatabase->put(resource, response);
+             callback({});
+         } catch (...) {
+             callback(std::current_exception());
+         }
+     }
     void cancel(AsyncRequest* req) {
         tasks.erase(req);
     }
@@ -250,7 +265,12 @@ std::string DefaultFileSource::getAccessToken() {
 void DefaultFileSource::setResourceTransform(optional<ActorRef<ResourceTransform>>&& transform) {
     impl->actor().invoke(&Impl::setResourceTransform, std::move(transform));
 }
-
+void DefaultFileSource::startPutRegionResource(OfflineRegion& region, const Resource& resource, const Response& response, const bool compressed, std::function<void (std::exception_ptr)> callback) {
+    impl->actor().invoke(&Impl::startPutRegionResource, region.getID(), resource, response, compressed, callback);
+}
+void DefaultFileSource::startPutRegionResource(const int64_t regionID, const Resource& resource, const Response& response, const bool compressed, std::function<void (std::exception_ptr)> callback) {
+    impl->actor().invoke(&Impl::startPutRegionResource, regionID, resource, response, compressed, callback);
+}
 std::unique_ptr<AsyncRequest> DefaultFileSource::request(const Resource& resource, Callback callback) {
     auto req = std::make_unique<FileSourceRequest>(std::move(callback));
 
@@ -288,7 +308,6 @@ void DefaultFileSource::setOfflineRegionObserver(OfflineRegion& region, std::uni
 void DefaultFileSource::setOfflineRegionDownloadState(OfflineRegion& region, OfflineRegionDownloadState state) {
     impl->actor().invoke(&Impl::setRegionDownloadState, region.getID(), state);
 }
-
 void DefaultFileSource::getOfflineRegionStatus(OfflineRegion& region, std::function<void (std::exception_ptr, optional<OfflineRegionStatus>)> callback) const {
     impl->actor().invoke(&Impl::getRegionStatus, region.getID(), callback);
 }
