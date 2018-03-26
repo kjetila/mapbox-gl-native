@@ -17,7 +17,8 @@ FileSource::FileSource(jni::JNIEnv& _env,
                        jni::String accessToken,
                        jni::String _cachePath,
                        jni::Object<AssetManager> assetManager) {
-    // Create a core default file source
+    Log::Warning(Event::General, "file source constructor");    
+// Create a core default file source
     fileSource = std::make_unique<mbgl::DefaultFileSource>(
         jni::Make<std::string>(_env, _cachePath) + "/mbgl-offline.db",
         std::make_unique<AssetManagerFileSource>(_env, assetManager));

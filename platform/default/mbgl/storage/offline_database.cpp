@@ -18,6 +18,7 @@ OfflineDatabase::Statement::~Statement() {
 OfflineDatabase::OfflineDatabase(std::string path_, uint64_t maximumCacheSize_)
     : path(std::move(path_)),
       maximumCacheSize(maximumCacheSize_) {
+    Log::Warning(Event::Database, "before ensure schema");
     ensureSchema();
 }
 
@@ -25,6 +26,7 @@ OfflineDatabase::~OfflineDatabase() {
     // Deleting these SQLite objects may result in exceptions, but we're in a destructor, so we
     // can't throw anything.
     try {
+        Log::Warning(Event::Database, "destructor");
         statements.clear();
         db.reset();
     } catch (mapbox::sqlite::Exception& ex) {
@@ -39,6 +41,7 @@ void OfflineDatabase::connect(int flags) {
 }
 
 void OfflineDatabase::ensureSchema() {
+    Log::Warning(Event::Database, "inside ensure schema");
     if (path != ":memory:") {
         try {
             connect(mapbox::sqlite::ReadWrite);
@@ -57,6 +60,7 @@ void OfflineDatabase::ensureSchema() {
             removeExisting();
             connect(mapbox::sqlite::ReadWrite | mapbox::sqlite::Create);
         } catch (mapbox::sqlite::Exception& ex) {
+	    Log::Warning(Event::Database, "exception ensure schema");
             if (ex.code != mapbox::sqlite::Exception::Code::CANTOPEN && ex.code != mapbox::sqlite::Exception::Code::NOTADB) {
                 Log::Error(Event::Database, "Unexpected error connecting to database: %s", ex.what());
                 throw;
@@ -68,6 +72,7 @@ void OfflineDatabase::ensureSchema() {
                 }
                 connect(mapbox::sqlite::ReadWrite | mapbox::sqlite::Create);
             } catch (...) {
+	        Log::Warning(Event::Database, "new exception ensure schema");	
                 Log::Error(Event::Database, "Unexpected error creating database: %s", util::toString(std::current_exception()).c_str());
                 throw;
             }
@@ -151,10 +156,12 @@ optional<Response> OfflineDatabase::get(const Resource& resource) {
 }
 
 optional<std::pair<Response, uint64_t>> OfflineDatabase::getInternal(const Resource& resource) {
+    Log::Warning(Event::Database, "get internal");
     if (resource.kind == Resource::Kind::Tile) {
         assert(resource.tileData);
         return getTile(*resource.tileData);
     } else {
+        Log::Warning(Event::Database, "get internal resource");	
         return getResource(resource);
     }
 }
@@ -209,7 +216,8 @@ std::pair<bool, uint64_t> OfflineDatabase::putInternal(const Resource& resource,
 }
 
 optional<std::pair<Response, uint64_t>> OfflineDatabase::getResource(const Resource& resource) {
-    // clang-format off
+    Log::Warning(Event::Database, "get resource");
+// clang-format off
     Statement accessedStmt = getStatement(
         "UPDATE resources SET accessed = ?1 WHERE url = ?2");
     // clang-format on
@@ -217,7 +225,7 @@ optional<std::pair<Response, uint64_t>> OfflineDatabase::getResource(const Resou
     accessedStmt->bind(1, util::now());
     accessedStmt->bind(2, resource.url);
     accessedStmt->run();
-
+Log::Warning(Event::Database, "get resource 2");
     // clang-format off
     Statement stmt = getStatement(
         //        0      1            2            3       4      5
@@ -227,11 +235,12 @@ optional<std::pair<Response, uint64_t>> OfflineDatabase::getResource(const Resou
     // clang-format on
 
     stmt->bind(1, resource.url);
-
+Log::Warning(Event::Database, "get resource 3");
     if (!stmt->run()) {
-        return {};
+	Log::Warning(Event::Database, "get resource 5");   
+     //return {};
     }
-
+Log::Warning(Event::Database, "get resource 4");
     Response response;
     uint64_t size = 0;
 
@@ -250,7 +259,7 @@ optional<std::pair<Response, uint64_t>> OfflineDatabase::getResource(const Resou
         response.data = std::make_shared<std::string>(*data);
         size = data->length();
     }
-
+ Log::Warning(Event::Database, "get resource 5");
     return std::make_pair(response, size);
 }
 std::pair<bool, uint64_t> OfflineDatabase::putInternal(const Resource& resource, const Response& response, bool evict_, bool compressed) {
@@ -388,6 +397,7 @@ bool OfflineDatabase::putResource(const Resource& resource,
 
 optional<std::pair<Response, uint64_t>> OfflineDatabase::getTile(const Resource::TileData& tile) {
     // clang-format off
+    Log::Warning(Event::Database, "get tile");
     Statement accessedStmt = getStatement(
         "UPDATE tiles "
         "SET accessed       = ?1 "
@@ -467,6 +477,7 @@ optional<int64_t> OfflineDatabase::hasTile(const Resource::TileData& tile) {
     stmt->bind(3, tile.x);
     stmt->bind(4, tile.y);
     stmt->bind(5, tile.z);
+
 
     if (!stmt->run()) {
         return {};
@@ -648,7 +659,7 @@ void OfflineDatabase::deleteRegion(OfflineRegion&& region) {
 
 optional<std::pair<Response, uint64_t>> OfflineDatabase::getRegionResource(int64_t regionID, const Resource& resource) {
     auto response = getInternal(resource);
-
+    Log::Warning(Event::Database, "get regionResource");
     if (response) {
         markUsed(regionID, resource);
     }
