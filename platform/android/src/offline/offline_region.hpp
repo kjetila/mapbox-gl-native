@@ -79,6 +79,8 @@ public:
     void deleteOfflineRegion(jni::JNIEnv&, jni::Object<OfflineRegionDeleteCallback>);
 
     void updateOfflineRegionMetadata(jni::JNIEnv&, jni::Array<jni::jbyte>, jni::Object<OfflineRegionUpdateMetadataCallback>);
+    
+    int64_t getID() const;
 
     static jni::Object<OfflineRegion> New(jni::JNIEnv&, jni::Object<FileSource>, mbgl::OfflineRegion);
 

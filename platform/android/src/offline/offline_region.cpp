@@ -156,6 +156,10 @@ void OfflineRegion::updateOfflineRegionMetadata(jni::JNIEnv& env_, jni::Array<jn
     });
 }
 
+int64_t OfflineRegion::getID() const {
+    return region->getID();
+}
+
 jni::Object<OfflineRegion> OfflineRegion::New(jni::JNIEnv& env, jni::Object<FileSource> jFileSource, mbgl::OfflineRegion region) {
 
     // Definition

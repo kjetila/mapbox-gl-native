@@ -32,6 +32,20 @@ OfflineDatabase::~OfflineDatabase() {
     }
 }
 
+void OfflineDatabase::Statement::clearBindings() {
+    stmt.clearBindings();
+}
+
+void OfflineDatabase::clear() {
+    try {
+        statements.clear();
+       // statements.clearBindings();
+        //db.reset();
+    } catch (mapbox::sqlite::Exception& ex) {
+        Log::Error(Event::Database, ex.code, ex.what());
+    }
+}
+
 void OfflineDatabase::connect(int flags) {
     db = std::make_unique<mapbox::sqlite::Database>(path.c_str(), flags);
     db->setBusyTimeout(Milliseconds::max());
@@ -200,8 +214,39 @@ std::pair<bool, uint64_t> OfflineDatabase::putInternal(const Resource& resource,
                 compressed ? compressedData : response.data ? *response.data : "",
                 compressed);
     } else {
+        std::string sizeString = util::toString(size);
+        Log::Debug(Event::Database, "Size: " + sizeString);
         inserted = putResource(resource, response,
                 compressed ? compressedData : response.data ? *response.data : "",
+                compressed);
+    }
+
+    return { inserted, size };
+}
+
+std::pair<bool, uint64_t> OfflineDatabase::putInternal(const Resource& resource, const Response& response, bool evict_, bool compressed) {
+    if (response.error) {
+        return { false, 0 };
+    }
+
+    uint64_t size = response.data->size();
+
+    if (evict_ && !evict(size)) {
+        Log::Debug(Event::Database, "Unable to make space for entry");
+        return { false, 0 };
+    }
+
+    bool inserted;
+
+    if (resource.kind == Resource::Kind::Tile) {
+        assert(resource.tileData);
+        inserted = putTile(*resource.tileData, response,
+                *response.data,
+                compressed);
+    } else {
+        std::string sizeString = util::toString(size);
+        inserted = putResource(resource, response,
+                *response.data,
                 compressed);
     }
 
@@ -604,13 +649,39 @@ OfflineRegionMetadata OfflineDatabase::updateMetadata(const int64_t regionID, co
 }
 
 void OfflineDatabase::deleteRegion(OfflineRegion&& region) {
+    db->exec("PRAGMA foreign_keys = OFF");
+
     // clang-format off
-    Statement stmt = getStatement(
+    Statement stmt1 = getStatement(
+        "DELETE FROM tiles WHERE id in ("
+        "  SELECT tile_id from region_tiles where region_id = ?1"
+        ") and id not in ("
+        "  SELECT tile_id from region_tiles where region_id != ?2"
+        ")"
+    );
+    // clang-format on
+    
+    stmt1->bind(1, region.getID());
+    stmt1->bind(2, region.getID());
+    stmt1->run();
+
+    // clang-format off
+    Statement stmt3 = getStatement(
+        "DELETE FROM region_tiles WHERE region_id = ?");
+    // clang-format on
+    
+    stmt3->bind(1, region.getID());
+    stmt3->run();
+    
+    // clang-format off
+    Statement stmt5 = getStatement(
         "DELETE FROM regions WHERE id = ?");
     // clang-format on
 
-    stmt->bind(1, region.getID());
-    stmt->run();
+    stmt5->bind(1, region.getID());
+    stmt5->run();
+    
+    db->exec("PRAGMA foreign_keys = ON");
 
     evict(0);
     db->exec("PRAGMA incremental_vacuum");
@@ -641,6 +712,20 @@ optional<int64_t> OfflineDatabase::hasRegionResource(int64_t regionID, const Res
 
 uint64_t OfflineDatabase::putRegionResource(int64_t regionID, const Resource& resource, const Response& response) {
     uint64_t size = putInternal(resource, response, false).second;
+    bool previouslyUnused = markUsed(regionID, resource);
+
+    if (offlineMapboxTileCount
+        && resource.kind == Resource::Kind::Tile
+        && util::mapbox::isMapboxURL(resource.url)
+        && previouslyUnused) {
+        *offlineMapboxTileCount += 1;
+    }
+
+    return size;
+}
+
+uint64_t OfflineDatabase::putRegionResource(int64_t regionID, const Resource& resource, const Response& response, const bool compressed) {
+    uint64_t size = putInternal(resource, response, false, compressed).second;
     bool previouslyUnused = markUsed(regionID, resource);
 
     if (offlineMapboxTileCount
@@ -802,79 +887,8 @@ T OfflineDatabase::getPragma(const char * sql) {
 // delete an arbitrary number of old cache entries. The free pages approach saves
 // us from calling VACCUM or keeping a running total, which can be costly.
 bool OfflineDatabase::evict(uint64_t neededFreeSize) {
-    uint64_t pageSize = getPragma<int64_t>("PRAGMA page_size");
-    uint64_t pageCount = getPragma<int64_t>("PRAGMA page_count");
-
-    auto usedSize = [&] {
-        return pageSize * (pageCount - getPragma<int64_t>("PRAGMA freelist_count"));
-    };
-
-    // The addition of pageSize is a fudge factor to account for non `data` column
-    // size, and because pages can get fragmented on the database.
-    while (usedSize() + neededFreeSize + pageSize > maximumCacheSize) {
-        // clang-format off
-        Statement accessedStmt = getStatement(
-            "SELECT max(accessed) "
-            "FROM ( "
-            "    SELECT accessed "
-            "    FROM resources "
-            "    LEFT JOIN region_resources "
-            "    ON resource_id = resources.id "
-            "    WHERE resource_id IS NULL "
-            "  UNION ALL "
-            "    SELECT accessed "
-            "    FROM tiles "
-            "    LEFT JOIN region_tiles "
-            "    ON tile_id = tiles.id "
-            "    WHERE tile_id IS NULL "
-            "  ORDER BY accessed ASC LIMIT ?1 "
-            ") "
-        );
-        accessedStmt->bind(1, 50);
-        // clang-format on
-        if (!accessedStmt->run()) {
-            return false;
-        }
-        Timestamp accessed = accessedStmt->get<Timestamp>(0);
-
-        // clang-format off
-        Statement stmt1 = getStatement(
-            "DELETE FROM resources "
-            "WHERE id IN ( "
-            "  SELECT id FROM resources "
-            "  LEFT JOIN region_resources "
-            "  ON resource_id = resources.id "
-            "  WHERE resource_id IS NULL "
-            "  AND accessed <= ?1 "
-            ") ");
-        // clang-format on
-        stmt1->bind(1, accessed);
-        stmt1->run();
-        uint64_t changes1 = stmt1->changes();
-
-        // clang-format off
-        Statement stmt2 = getStatement(
-            "DELETE FROM tiles "
-            "WHERE id IN ( "
-            "  SELECT id FROM tiles "
-            "  LEFT JOIN region_tiles "
-            "  ON tile_id = tiles.id "
-            "  WHERE tile_id IS NULL "
-            "  AND accessed <= ?1 "
-            ") ");
-        // clang-format on
-        stmt2->bind(1, accessed);
-        stmt2->run();
-        uint64_t changes2 = stmt2->changes();
-
-        // The cached value of offlineTileCount does not need to be updated
-        // here because only non-offline tiles can be removed by eviction.
-
-        if (changes1 == 0 && changes2 == 0) {
-            return false;
-        }
-    }
-
+    (void)neededFreeSize;
+    (void)maximumCacheSize;
     return true;
 }
 
