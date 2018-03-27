@@ -182,12 +182,12 @@ public:
     }
 
     void clear() {
-        offlineDatabase.clear();
+        offlineDatabase->clear();
     }
 
     void startPut(const Resource& resource, const Response& response, std::function<void (std::exception_ptr)> callback) {
          try {
-             offlineDatabase.put(resource, response);
+             offlineDatabase->put(resource, response);
              callback({});
          } catch (...) {
              //callback({});
@@ -199,7 +199,7 @@ public:
 
     void startPutRegionResource(const int64_t regionID, const Resource& resource, const Response&  response, const bool compressed, std::function<void (std::exception_ptr)> callback) {
         try {
-            offlineDatabase.putRegionResource(regionID, resource, response, compressed);
+            offlineDatabase->putRegionResource(regionID, resource, response, compressed);
             callback({});
         } catch (...) {
             callback(std::current_exception());
@@ -318,14 +318,14 @@ void DefaultFileSource::setOfflineMapboxTileCountLimit(uint64_t limit) const {
     impl->actor().invoke(&Impl::setOfflineMapboxTileCountLimit, limit);
 }
 void DefaultFileSource::startPutRegionResource(OfflineRegion& region, const Resource& resource, const Response& response, const bool compressed, std::function<void (std::exception_ptr)> callback) {
-    thread->invoke(&Impl::startPutRegionResource, region.getID(), resource, response, compressed, callback);
+    impl->actor().invoke(&Impl::startPutRegionResource, region.getID(), resource, response, compressed, callback);
 }
 void DefaultFileSource::startPutRegionResource(const int64_t regionID, const Resource& resource, const Response& response, const bool compressed, std::function<void (std::exception_ptr)> callback) {
-    thread->invoke(&Impl::startPutRegionResource, regionID, resource, response, compressed, callback);
+    impl->actor().invoke(&Impl::startPutRegionResource, regionID, resource, response, compressed, callback);
 }
 
 void DefaultFileSource::clear() const {
-    thread->invokeSync(&Impl::clear);
+    impl->actor().invoke(&Impl::clear);
 }
 
 void DefaultFileSource::pause() {
