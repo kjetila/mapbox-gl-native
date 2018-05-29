@@ -4,10 +4,13 @@ package com.mapbox.mapboxsdk.style.layers;
 
 import android.support.annotation.ColorInt;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.annotation.UiThread;
 
 import static com.mapbox.mapboxsdk.utils.ColorUtils.rgbaToColor;
 
+import com.google.gson.JsonArray;
+import com.mapbox.mapboxsdk.style.expressions.Expression;
 import com.mapbox.mapboxsdk.style.layers.TransitionOptions;
 
 /**
@@ -34,6 +37,7 @@ public class FillLayer extends Layer {
    * @param sourceId the id of the source
    */
   public FillLayer(String layerId, String sourceId) {
+    super();
     initialize(layerId, sourceId);
   }
 
@@ -45,6 +49,7 @@ public class FillLayer extends Layer {
    * @param sourceLayer the source layer to set
    */
   public void setSourceLayer(String sourceLayer) {
+    checkThread();
     nativeSetSourceLayer(sourceLayer);
   }
 
@@ -65,27 +70,45 @@ public class FillLayer extends Layer {
    * @return sourceLayer the source layer to get
    */
   public String getSourceLayer() {
+    checkThread();
     return nativeGetSourceLayer();
   }
 
   /**
-   * Set a single filter.
+   * Set a single expression filter.
    *
-   * @param filter the filter to set
+   * @param filter the expression filter to set
    */
-  public void setFilter(Filter.Statement filter) {
+  public void setFilter(Expression filter) {
+    checkThread();
     nativeSetFilter(filter.toArray());
   }
 
   /**
-   * Set a single filter.
+   * Set a single expression filter.
    *
-   * @param filter the filter to set
+   * @param filter the expression filter to set
    * @return This
    */
-  public FillLayer withFilter(Filter.Statement filter) {
+  public FillLayer withFilter(Expression filter) {
     setFilter(filter);
     return this;
+  }
+
+  /**
+   * Get a single expression filter.
+   *
+   * @return the expression filter to get
+   */
+  @Nullable
+  public Expression getFilter() {
+    checkThread();
+    Expression expression = null;
+    JsonArray array = (JsonArray) nativeGetFilter();
+    if (array != null) {
+      expression = Expression.Converter.convert(array);
+    }
+    return expression;
   }
 
   /**
@@ -108,6 +131,7 @@ public class FillLayer extends Layer {
    */
   @SuppressWarnings("unchecked")
   public PropertyValue<Boolean> getFillAntialias() {
+    checkThread();
     return (PropertyValue<Boolean>) new PropertyValue("fill-antialias", nativeGetFillAntialias());
   }
 
@@ -118,6 +142,7 @@ public class FillLayer extends Layer {
    */
   @SuppressWarnings("unchecked")
   public PropertyValue<Float> getFillOpacity() {
+    checkThread();
     return (PropertyValue<Float>) new PropertyValue("fill-opacity", nativeGetFillOpacity());
   }
 
@@ -127,6 +152,7 @@ public class FillLayer extends Layer {
    * @return transition options for Float
    */
   public TransitionOptions getFillOpacityTransition() {
+    checkThread();
     return nativeGetFillOpacityTransition();
   }
 
@@ -136,6 +162,7 @@ public class FillLayer extends Layer {
    * @param options transition options for Float
    */
   public void setFillOpacityTransition(TransitionOptions options) {
+    checkThread();
     nativeSetFillOpacityTransition(options.getDuration(), options.getDelay());
   }
 
@@ -146,6 +173,7 @@ public class FillLayer extends Layer {
    */
   @SuppressWarnings("unchecked")
   public PropertyValue<String> getFillColor() {
+    checkThread();
     return (PropertyValue<String>) new PropertyValue("fill-color", nativeGetFillColor());
   }
 
@@ -157,6 +185,7 @@ public class FillLayer extends Layer {
    */
   @ColorInt
   public int getFillColorAsInt() {
+    checkThread();
     PropertyValue<String> value = getFillColor();
     if (value.isValue()) {
       return rgbaToColor(value.getValue());
@@ -171,6 +200,7 @@ public class FillLayer extends Layer {
    * @return transition options for String
    */
   public TransitionOptions getFillColorTransition() {
+    checkThread();
     return nativeGetFillColorTransition();
   }
 
@@ -180,6 +210,7 @@ public class FillLayer extends Layer {
    * @param options transition options for String
    */
   public void setFillColorTransition(TransitionOptions options) {
+    checkThread();
     nativeSetFillColorTransition(options.getDuration(), options.getDelay());
   }
 
@@ -190,6 +221,7 @@ public class FillLayer extends Layer {
    */
   @SuppressWarnings("unchecked")
   public PropertyValue<String> getFillOutlineColor() {
+    checkThread();
     return (PropertyValue<String>) new PropertyValue("fill-outline-color", nativeGetFillOutlineColor());
   }
 
@@ -201,6 +233,7 @@ public class FillLayer extends Layer {
    */
   @ColorInt
   public int getFillOutlineColorAsInt() {
+    checkThread();
     PropertyValue<String> value = getFillOutlineColor();
     if (value.isValue()) {
       return rgbaToColor(value.getValue());
@@ -215,6 +248,7 @@ public class FillLayer extends Layer {
    * @return transition options for String
    */
   public TransitionOptions getFillOutlineColorTransition() {
+    checkThread();
     return nativeGetFillOutlineColorTransition();
   }
 
@@ -224,6 +258,7 @@ public class FillLayer extends Layer {
    * @param options transition options for String
    */
   public void setFillOutlineColorTransition(TransitionOptions options) {
+    checkThread();
     nativeSetFillOutlineColorTransition(options.getDuration(), options.getDelay());
   }
 
@@ -234,6 +269,7 @@ public class FillLayer extends Layer {
    */
   @SuppressWarnings("unchecked")
   public PropertyValue<Float[]> getFillTranslate() {
+    checkThread();
     return (PropertyValue<Float[]>) new PropertyValue("fill-translate", nativeGetFillTranslate());
   }
 
@@ -243,6 +279,7 @@ public class FillLayer extends Layer {
    * @return transition options for Float[]
    */
   public TransitionOptions getFillTranslateTransition() {
+    checkThread();
     return nativeGetFillTranslateTransition();
   }
 
@@ -252,6 +289,7 @@ public class FillLayer extends Layer {
    * @param options transition options for Float[]
    */
   public void setFillTranslateTransition(TransitionOptions options) {
+    checkThread();
     nativeSetFillTranslateTransition(options.getDuration(), options.getDelay());
   }
 
@@ -262,6 +300,7 @@ public class FillLayer extends Layer {
    */
   @SuppressWarnings("unchecked")
   public PropertyValue<String> getFillTranslateAnchor() {
+    checkThread();
     return (PropertyValue<String>) new PropertyValue("fill-translate-anchor", nativeGetFillTranslateAnchor());
   }
 
@@ -272,6 +311,7 @@ public class FillLayer extends Layer {
    */
   @SuppressWarnings("unchecked")
   public PropertyValue<String> getFillPattern() {
+    checkThread();
     return (PropertyValue<String>) new PropertyValue("fill-pattern", nativeGetFillPattern());
   }
 
@@ -281,6 +321,7 @@ public class FillLayer extends Layer {
    * @return transition options for String
    */
   public TransitionOptions getFillPatternTransition() {
+    checkThread();
     return nativeGetFillPatternTransition();
   }
 
@@ -290,6 +331,7 @@ public class FillLayer extends Layer {
    * @param options transition options for String
    */
   public void setFillPatternTransition(TransitionOptions options) {
+    checkThread();
     nativeSetFillPatternTransition(options.getDuration(), options.getDelay());
   }
 

@@ -16,7 +16,6 @@ import android.util.DisplayMetrics;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
-
 import com.mapbox.mapboxsdk.R;
 import com.mapbox.mapboxsdk.attribution.AttributionLayout;
 import com.mapbox.mapboxsdk.attribution.AttributionMeasure;
@@ -25,7 +24,7 @@ import com.mapbox.mapboxsdk.camera.CameraPosition;
 import com.mapbox.mapboxsdk.constants.Style;
 import com.mapbox.mapboxsdk.geometry.LatLngBounds;
 import com.mapbox.mapboxsdk.storage.FileSource;
-
+import com.mapbox.mapboxsdk.utils.ThreadUtils;
 import timber.log.Timber;
 
 /**
@@ -82,10 +81,11 @@ public class MapSnapshotter {
    * MapSnapshotter options
    */
   public static class Options {
-    private int pixelRatio = 1;
+    private float pixelRatio = 1;
     private int width;
     private int height;
     private String styleUrl = Style.MAPBOX_STREETS;
+    private String styleJson;
     private LatLngBounds region;
     private CameraPosition cameraPosition;
     private boolean showLogo = true;
@@ -95,6 +95,9 @@ public class MapSnapshotter {
      * @param height the height of the image
      */
     public Options(int width, int height) {
+      if (width == 0 || height == 0) {
+        throw new IllegalArgumentException("Unable to create a snapshot with width or height set to 0");
+      }
       this.width = width;
       this.height = height;
     }
@@ -105,6 +108,15 @@ public class MapSnapshotter {
      */
     public Options withStyle(String url) {
       this.styleUrl = url;
+      return this;
+    }
+
+    /**
+     * @param styleJson The style json to use
+     * @return the mutated {@link Options}
+     */
+    public Options withStyleJson(String styleJson) {
+      this.styleJson = styleJson;
       return this;
     }
 
@@ -122,7 +134,7 @@ public class MapSnapshotter {
      * @param pixelRatio the pixel ratio to use (default: 1)
      * @return the mutated {@link Options}
      */
-    public Options withPixelRatio(int pixelRatio) {
+    public Options withPixelRatio(float pixelRatio) {
       this.pixelRatio = pixelRatio;
       return this;
     }
@@ -164,7 +176,7 @@ public class MapSnapshotter {
     /**
      * @return the pixel ratio
      */
-    public int getPixelRatio() {
+    public float getPixelRatio() {
       return pixelRatio;
     }
 
@@ -200,12 +212,13 @@ public class MapSnapshotter {
    * @param options the options to use for the snapshot
    */
   public MapSnapshotter(@NonNull Context context, @NonNull Options options) {
+    checkThread();
     this.context = context.getApplicationContext();
     FileSource fileSource = FileSource.getInstance(context);
     String programCacheDir = context.getCacheDir().getAbsolutePath();
 
     nativeInitialize(this, fileSource, options.pixelRatio, options.width,
-      options.height, options.styleUrl, options.region, options.cameraPosition,
+      options.height, options.styleUrl, options.styleJson, options.region, options.cameraPosition,
       options.showLogo, programCacheDir);
   }
 
@@ -230,7 +243,7 @@ public class MapSnapshotter {
     if (this.callback != null) {
       throw new IllegalStateException("Snapshotter was already started");
     }
-
+    checkThread();
     this.callback = callback;
     this.errorHandler = errorHandler;
     nativeStart();
@@ -271,6 +284,7 @@ public class MapSnapshotter {
    * the object was created on.
    */
   public void cancel() {
+    checkThread();
     reset();
     nativeCancel();
   }
@@ -452,6 +466,10 @@ public class MapSnapshotter {
     }
   }
 
+  private void checkThread() {
+    ThreadUtils.checkThread("MapSnapshotter");
+  }
+
   protected void reset() {
     callback = null;
     errorHandler = null;
@@ -459,7 +477,7 @@ public class MapSnapshotter {
 
   protected native void nativeInitialize(MapSnapshotter mapSnapshotter,
                                          FileSource fileSource, float pixelRatio,
-                                         int width, int height, String styleUrl,
+                                         int width, int height, String styleUrl, String styleJson,
                                          LatLngBounds region, CameraPosition position,
                                          boolean showLogo, String programCacheDir);
 

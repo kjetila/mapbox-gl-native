@@ -26,17 +26,13 @@ const NSNotificationName MGLOfflinePackErrorNotification = @"MGLOfflinePackError
 const NSNotificationName MGLOfflinePackMaximumMapboxTilesReachedNotification = @"MGLOfflinePackMaximumMapboxTilesReached";
 
 const MGLOfflinePackUserInfoKey MGLOfflinePackUserInfoKeyState = @"State";
-NSString * const MGLOfflinePackStateUserInfoKey = MGLOfflinePackUserInfoKeyState;
 const MGLOfflinePackUserInfoKey MGLOfflinePackUserInfoKeyProgress = @"Progress";
-NSString * const MGLOfflinePackProgressUserInfoKey = MGLOfflinePackUserInfoKeyProgress;
 const MGLOfflinePackUserInfoKey MGLOfflinePackUserInfoKeyError = @"Error";
-NSString * const MGLOfflinePackErrorUserInfoKey = MGLOfflinePackUserInfoKeyError;
 const MGLOfflinePackUserInfoKey MGLOfflinePackUserInfoKeyMaximumCount = @"MaximumCount";
-NSString * const MGLOfflinePackMaximumCountUserInfoKey = MGLOfflinePackUserInfoKeyMaximumCount;
 
 @interface MGLOfflineStorage ()
 
-@property (nonatomic, strong, readwrite) NS_MUTABLE_ARRAY_OF(MGLOfflinePack *) *packs;
+@property (nonatomic, strong, readwrite) NSMutableArray<MGLOfflinePack *> *packs;
 @property (nonatomic) mbgl::DefaultFileSource *mbglFileSource;
 @property (nonatomic, getter=isPaused) BOOL paused;
 
@@ -247,7 +243,7 @@ NSString * const MGLOfflinePackMaximumCountUserInfoKey = MGLOfflinePackUserInfoK
     _mbglFileSource = nullptr;
 }
 
-- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NS_DICTIONARY_OF(NSString *, id) *)change context:(void *)context {
+- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary<NSString *, id> *)change context:(void *)context {
     // Synchronize the file source’s access token with the global one in MGLAccountManager.
     if ([keyPath isEqualToString:@"accessToken"] && object == [MGLAccountManager sharedManager]) {
         NSString *accessToken = change[NSKeyValueChangeNewKey];
@@ -340,7 +336,7 @@ NSString * const MGLOfflinePackMaximumCountUserInfoKey = MGLOfflinePackUserInfoK
 }
 
 - (void)reloadPacks {
-    [self getPacksWithCompletionHandler:^(NS_ARRAY_OF(MGLOfflinePack *) *packs, __unused NSError * _Nullable error) {
+    [self getPacksWithCompletionHandler:^(NSArray<MGLOfflinePack *> *packs, __unused NSError * _Nullable error) {
         for (MGLOfflinePack *pack in self.packs) {
             [pack invalidate];
         }
@@ -348,7 +344,7 @@ NSString * const MGLOfflinePackMaximumCountUserInfoKey = MGLOfflinePackUserInfoK
     }];
 }
 
-- (void)getPacksWithCompletionHandler:(void (^)(NS_ARRAY_OF(MGLOfflinePack *) *packs, NSError * _Nullable error))completion {
+- (void)getPacksWithCompletionHandler:(void (^)(NSArray<MGLOfflinePack *> *packs, NSError * _Nullable error))completion {
     self.mbglFileSource->listOfflineRegions([&, completion](std::exception_ptr exception, mbgl::optional<std::vector<mbgl::OfflineRegion>> regions) {
         NSError *error;
         if (exception) {

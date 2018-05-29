@@ -4,10 +4,13 @@ package com.mapbox.mapboxsdk.style.layers;
 
 import android.support.annotation.ColorInt;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.annotation.UiThread;
 
 import static com.mapbox.mapboxsdk.utils.ColorUtils.rgbaToColor;
 
+import com.google.gson.JsonArray;
+import com.mapbox.mapboxsdk.style.expressions.Expression;
 import com.mapbox.mapboxsdk.style.layers.TransitionOptions;
 
 /**
@@ -34,6 +37,7 @@ public class HillshadeLayer extends Layer {
    * @param sourceId the id of the source
    */
   public HillshadeLayer(String layerId, String sourceId) {
+    super();
     initialize(layerId, sourceId);
   }
 
@@ -45,6 +49,7 @@ public class HillshadeLayer extends Layer {
    * @param sourceLayer the source layer to set
    */
   public void setSourceLayer(String sourceLayer) {
+    checkThread();
     nativeSetSourceLayer(sourceLayer);
   }
 
@@ -79,6 +84,7 @@ public class HillshadeLayer extends Layer {
    */
   @SuppressWarnings("unchecked")
   public PropertyValue<Float> getHillshadeIlluminationDirection() {
+    checkThread();
     return (PropertyValue<Float>) new PropertyValue("hillshade-illumination-direction", nativeGetHillshadeIlluminationDirection());
   }
 
@@ -89,6 +95,7 @@ public class HillshadeLayer extends Layer {
    */
   @SuppressWarnings("unchecked")
   public PropertyValue<String> getHillshadeIlluminationAnchor() {
+    checkThread();
     return (PropertyValue<String>) new PropertyValue("hillshade-illumination-anchor", nativeGetHillshadeIlluminationAnchor());
   }
 
@@ -99,6 +106,7 @@ public class HillshadeLayer extends Layer {
    */
   @SuppressWarnings("unchecked")
   public PropertyValue<Float> getHillshadeExaggeration() {
+    checkThread();
     return (PropertyValue<Float>) new PropertyValue("hillshade-exaggeration", nativeGetHillshadeExaggeration());
   }
 
@@ -108,6 +116,7 @@ public class HillshadeLayer extends Layer {
    * @return transition options for Float
    */
   public TransitionOptions getHillshadeExaggerationTransition() {
+    checkThread();
     return nativeGetHillshadeExaggerationTransition();
   }
 
@@ -117,6 +126,7 @@ public class HillshadeLayer extends Layer {
    * @param options transition options for Float
    */
   public void setHillshadeExaggerationTransition(TransitionOptions options) {
+    checkThread();
     nativeSetHillshadeExaggerationTransition(options.getDuration(), options.getDelay());
   }
 
@@ -127,6 +137,7 @@ public class HillshadeLayer extends Layer {
    */
   @SuppressWarnings("unchecked")
   public PropertyValue<String> getHillshadeShadowColor() {
+    checkThread();
     return (PropertyValue<String>) new PropertyValue("hillshade-shadow-color", nativeGetHillshadeShadowColor());
   }
 
@@ -138,6 +149,7 @@ public class HillshadeLayer extends Layer {
    */
   @ColorInt
   public int getHillshadeShadowColorAsInt() {
+    checkThread();
     PropertyValue<String> value = getHillshadeShadowColor();
     if (value.isValue()) {
       return rgbaToColor(value.getValue());
@@ -152,6 +164,7 @@ public class HillshadeLayer extends Layer {
    * @return transition options for String
    */
   public TransitionOptions getHillshadeShadowColorTransition() {
+    checkThread();
     return nativeGetHillshadeShadowColorTransition();
   }
 
@@ -161,6 +174,7 @@ public class HillshadeLayer extends Layer {
    * @param options transition options for String
    */
   public void setHillshadeShadowColorTransition(TransitionOptions options) {
+    checkThread();
     nativeSetHillshadeShadowColorTransition(options.getDuration(), options.getDelay());
   }
 
@@ -171,6 +185,7 @@ public class HillshadeLayer extends Layer {
    */
   @SuppressWarnings("unchecked")
   public PropertyValue<String> getHillshadeHighlightColor() {
+    checkThread();
     return (PropertyValue<String>) new PropertyValue("hillshade-highlight-color", nativeGetHillshadeHighlightColor());
   }
 
@@ -182,6 +197,7 @@ public class HillshadeLayer extends Layer {
    */
   @ColorInt
   public int getHillshadeHighlightColorAsInt() {
+    checkThread();
     PropertyValue<String> value = getHillshadeHighlightColor();
     if (value.isValue()) {
       return rgbaToColor(value.getValue());
@@ -196,6 +212,7 @@ public class HillshadeLayer extends Layer {
    * @return transition options for String
    */
   public TransitionOptions getHillshadeHighlightColorTransition() {
+    checkThread();
     return nativeGetHillshadeHighlightColorTransition();
   }
 
@@ -205,6 +222,7 @@ public class HillshadeLayer extends Layer {
    * @param options transition options for String
    */
   public void setHillshadeHighlightColorTransition(TransitionOptions options) {
+    checkThread();
     nativeSetHillshadeHighlightColorTransition(options.getDuration(), options.getDelay());
   }
 
@@ -215,6 +233,7 @@ public class HillshadeLayer extends Layer {
    */
   @SuppressWarnings("unchecked")
   public PropertyValue<String> getHillshadeAccentColor() {
+    checkThread();
     return (PropertyValue<String>) new PropertyValue("hillshade-accent-color", nativeGetHillshadeAccentColor());
   }
 
@@ -226,6 +245,7 @@ public class HillshadeLayer extends Layer {
    */
   @ColorInt
   public int getHillshadeAccentColorAsInt() {
+    checkThread();
     PropertyValue<String> value = getHillshadeAccentColor();
     if (value.isValue()) {
       return rgbaToColor(value.getValue());
@@ -240,6 +260,7 @@ public class HillshadeLayer extends Layer {
    * @return transition options for String
    */
   public TransitionOptions getHillshadeAccentColorTransition() {
+    checkThread();
     return nativeGetHillshadeAccentColorTransition();
   }
 
@@ -249,6 +270,7 @@ public class HillshadeLayer extends Layer {
    * @param options transition options for String
    */
   public void setHillshadeAccentColorTransition(TransitionOptions options) {
+    checkThread();
     nativeSetHillshadeAccentColorTransition(options.getDuration(), options.getDelay());
   }
 

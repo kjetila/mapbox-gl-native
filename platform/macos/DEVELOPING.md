@@ -4,23 +4,9 @@ This document explains how to build the Mapbox Maps SDK for macOS from source. I
 
 ## Requirements
 
-The Mapbox Maps SDK for macOS and the macosapp demo application run on macOS 10.10.0 or above.
-
-The Mapbox Maps SDK for macOS requires Xcode 8.0 or above.
+See the "Requirements" section in [INSTALL.md](INSTALL.md).
 
 ## Building the SDK
-
-1. [Install core dependencies](../../INSTALL.md).
-1. Run `make xproj`.
-1. Switch to the “dynamic” or “macosapp” scheme. The former builds just the Cocoa framework, while the latter also builds a Cocoa demo application based on it.
-
-### Packaging builds
-
-Install [jazzy](https://github.com/realm/jazzy) for generating API documentation:
-
-```bash
-[sudo] gem install jazzy
-```
 
 Build and package the SDK by using one of the following commands:
 
@@ -117,6 +103,8 @@ To add an example code listing to the documentation for a class or class member:
    to [MGLDocumentationExampleTests](test/MGLDocumentationExampleTests.swift).
    Wrap the code you’d like to appear in the documentation within
    `//#-example-code` and `//#-end-example-code` comments.
+1. If the header doesn’t already have an example code listing, add the path to
+   the header to platform/darwin/scripts/update-examples.list.
 1. Insert the code listings into the headers:
 
 ```bash

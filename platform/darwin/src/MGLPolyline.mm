@@ -49,7 +49,7 @@
              @"coordinates": self.mgl_coordinates};
 }
 
-- (NS_ARRAY_OF(id) *)mgl_coordinates {
+- (NSArray<id> *)mgl_coordinates {
     NSMutableArray *coordinates = [[NSMutableArray alloc] initWithCapacity:self.pointCount];
     for (NSUInteger index = 0; index < self.pointCount; index++) {
         CLLocationCoordinate2D coordinate = self.coordinates[index];
@@ -72,9 +72,12 @@
     
     if (count > 1 || middle > traveled) {
         for (NSUInteger i = 0; i < count; i++) {
-            
+
+            // Avoid a heap buffer overflow when there are only two coordinates.
+            NSUInteger nextIndex = (i + 1 == count) ? 0 : 1;
+
             MGLRadianCoordinate2D from = MGLRadianCoordinateFromLocationCoordinate(coordinates[i]);
-            MGLRadianCoordinate2D to = MGLRadianCoordinateFromLocationCoordinate(coordinates[i + 1]);
+            MGLRadianCoordinate2D to = MGLRadianCoordinateFromLocationCoordinate(coordinates[i + nextIndex]);
             
             if (traveled >= middle) {
                 double overshoot = middle - traveled;
@@ -91,7 +94,6 @@
             }
             
             traveled += (MGLDistanceBetweenRadianCoordinates(from, to) * mbgl::util::EARTH_RADIUS_M);
-            
         }
     }
 
@@ -121,7 +123,7 @@
 
 @interface MGLMultiPolyline ()
 
-@property (nonatomic, copy, readwrite) NS_ARRAY_OF(MGLPolyline *) *polylines;
+@property (nonatomic, copy, readwrite) NSArray<MGLPolyline *> *polylines;
 
 @end
 
@@ -131,11 +133,11 @@
 
 @synthesize overlayBounds = _overlayBounds;
 
-+ (instancetype)multiPolylineWithPolylines:(NS_ARRAY_OF(MGLPolyline *) *)polylines {
++ (instancetype)multiPolylineWithPolylines:(NSArray<MGLPolyline *> *)polylines {
     return [[self alloc] initWithPolylines:polylines];
 }
 
-- (instancetype)initWithPolylines:(NS_ARRAY_OF(MGLPolyline *) *)polylines {
+- (instancetype)initWithPolylines:(NSArray<MGLPolyline *> *)polylines {
     if (self = [super init]) {
         _polylines = polylines;
 

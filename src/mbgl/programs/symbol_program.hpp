@@ -61,8 +61,8 @@ struct SymbolLayoutAttributes : gl::Attributes<
             {{
                 static_cast<int16_t>(labelAnchor.x),
                 static_cast<int16_t>(labelAnchor.y),
-                static_cast<int16_t>(::round(o.x * 64)),  // use 1/64 pixels for placement
-                static_cast<int16_t>(::round((o.y + glyphOffsetY) * 64))
+                static_cast<int16_t>(::round(o.x * 32)),  // use 1/32 pixels for placement
+                static_cast<int16_t>(::round((o.y + glyphOffsetY) * 32))
             }},
             {{
                 tx,
@@ -278,35 +278,45 @@ public:
             Shaders::fragmentSource)) {
     }
 
+    static typename AllUniforms::Values computeAllUniformValues(
+        const UniformValues& uniformValues,
+        const SymbolSizeBinder& symbolSizeBinder,
+        const PaintPropertyBinders& paintPropertyBinders,
+        const typename PaintProperties::PossiblyEvaluated& currentProperties,
+        float currentZoom) {
+        return uniformValues.concat(symbolSizeBinder.uniformValues(currentZoom))
+            .concat(paintPropertyBinders.uniformValues(currentZoom, currentProperties));
+    }
+
+    static typename Attributes::Bindings computeAllAttributeBindings(
+        const gl::VertexBuffer<LayoutVertex>& layoutVertexBuffer,
+        const gl::VertexBuffer<SymbolDynamicLayoutAttributes::Vertex>& dynamicLayoutVertexBuffer,
+        const gl::VertexBuffer<SymbolOpacityAttributes::Vertex>& opacityVertexBuffer,
+        const PaintPropertyBinders& paintPropertyBinders,
+        const typename PaintProperties::PossiblyEvaluated& currentProperties) {
+        assert(layoutVertexBuffer.vertexCount == dynamicLayoutVertexBuffer.vertexCount &&
+               layoutVertexBuffer.vertexCount == opacityVertexBuffer.vertexCount);
+        return LayoutAttributes::bindings(layoutVertexBuffer)
+            .concat(SymbolDynamicLayoutAttributes::bindings(dynamicLayoutVertexBuffer))
+            .concat(SymbolOpacityAttributes::bindings(opacityVertexBuffer))
+            .concat(paintPropertyBinders.attributeBindings(currentProperties));
+    }
+
+    static uint32_t activeBindingCount(const typename Attributes::Bindings& allAttributeBindings) {
+        return Attributes::activeBindingCount(allAttributeBindings);
+    }
+
     template <class DrawMode>
     void draw(gl::Context& context,
               DrawMode drawMode,
               gl::DepthMode depthMode,
               gl::StencilMode stencilMode,
               gl::ColorMode colorMode,
-              const UniformValues& uniformValues,
-              const gl::VertexBuffer<LayoutVertex>& layoutVertexBuffer,
-              const gl::VertexBuffer<SymbolDynamicLayoutAttributes::Vertex>& dynamicLayoutVertexBuffer,
-              const gl::VertexBuffer<SymbolOpacityAttributes::Vertex>& opacityVertexBuffer,
-              const SymbolSizeBinder& symbolSizeBinder,
               const gl::IndexBuffer<DrawMode>& indexBuffer,
               const SegmentVector<Attributes>& segments,
-              const PaintPropertyBinders& paintPropertyBinders,
-              const typename PaintProperties::PossiblyEvaluated& currentProperties,
-              float currentZoom,
+              const typename AllUniforms::Values& allUniformValues,
+              const typename Attributes::Bindings& allAttributeBindings,
               const std::string& layerID) {
-        typename AllUniforms::Values allUniformValues = uniformValues
-            .concat(symbolSizeBinder.uniformValues(currentZoom))
-            .concat(paintPropertyBinders.uniformValues(currentZoom, currentProperties));
-
-        typename Attributes::Bindings allAttributeBindings = LayoutAttributes::bindings(layoutVertexBuffer)
-            .concat(SymbolDynamicLayoutAttributes::bindings(dynamicLayoutVertexBuffer))
-            .concat(SymbolOpacityAttributes::bindings(opacityVertexBuffer))
-            .concat(paintPropertyBinders.attributeBindings(currentProperties));
-
-        assert(layoutVertexBuffer.vertexCount == dynamicLayoutVertexBuffer.vertexCount &&
-                layoutVertexBuffer.vertexCount == opacityVertexBuffer.vertexCount);
-
         for (auto& segment : segments) {
             auto vertexArrayIt = segment.vertexArrays.find(layerID);
 

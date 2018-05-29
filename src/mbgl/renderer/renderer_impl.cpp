@@ -380,7 +380,8 @@ void Renderer::Impl::render(const UpdateParameters& updateParameters) {
     }
     for (auto it = order.rbegin(); it != order.rend(); ++it) {
         if (it->layer.is<RenderSymbolLayer>()) {
-            if (crossTileSymbolIndex.addLayer(*it->layer.as<RenderSymbolLayer>())) symbolBucketsChanged = true;
+            const float lng = parameters.state.getLatLng().longitude();
+            if (crossTileSymbolIndex.addLayer(*it->layer.as<RenderSymbolLayer>(), lng)) symbolBucketsChanged = true;
         }
     }
 
@@ -396,10 +397,6 @@ void Renderer::Impl::render(const UpdateParameters& updateParameters) {
         }
 
         placementChanged = newPlacement->commit(*placement, parameters.timePoint);
-        // commitFeatureIndexes depends on the assumption that no new FeatureIndex has been loaded since placement
-        // started. If we violate this assumption, then we need to either make CollisionIndex completely independendent of
-        // FeatureIndex, or find a way for its entries to point to multiple FeatureIndexes.
-        commitFeatureIndexes();
         crossTileSymbolIndex.pruneUnusedLayers(usedSymbolLayers);
         if (placementChanged || symbolBucketsChanged) {
             placement = std::move(newPlacement);
@@ -490,7 +487,9 @@ void Renderer::Impl::render(const UpdateParameters& updateParameters) {
         static const ClippingMaskProgram::PaintPropertyBinders paintAttributeData(properties, 0);
 
         for (const auto& clipID : parameters.clipIDGenerator.getClipIDs()) {
-            parameters.staticData.programs.clippingMask.draw(
+            auto& program = parameters.staticData.programs.clippingMask;
+
+            program.draw(
                 parameters.context,
                 gl::Triangles(),
                 gl::DepthMode::disabled(),
@@ -503,15 +502,21 @@ void Renderer::Impl::render(const UpdateParameters& updateParameters) {
                     gl::StencilMode::Replace
                 },
                 gl::ColorMode::disabled(),
-                ClippingMaskProgram::UniformValues {
-                    uniforms::u_matrix::Value{ parameters.matrixForTile(clipID.first) },
-                },
-                parameters.staticData.tileVertexBuffer,
                 parameters.staticData.quadTriangleIndexBuffer,
                 parameters.staticData.tileTriangleSegments,
-                paintAttributeData,
-                properties,
-                parameters.state.getZoom(),
+                program.computeAllUniformValues(
+                    ClippingMaskProgram::UniformValues {
+                        uniforms::u_matrix::Value{ parameters.matrixForTile(clipID.first) },
+                    },
+                    paintAttributeData,
+                    properties,
+                    parameters.state.getZoom()
+                ),
+                program.computeAllAttributeBindings(
+                    parameters.staticData.tileVertexBuffer,
+                    paintAttributeData,
+                    properties
+                ),
                 "clipping"
             );
         }
@@ -668,6 +673,39 @@ std::vector<Feature> Renderer::Impl::queryRenderedFeatures(const ScreenLineStrin
 
     return queryRenderedFeatures(geometry, options, layers);
 }
+    
+void Renderer::Impl::queryRenderedSymbols(std::unordered_map<std::string, std::vector<Feature>>& resultsByLayer,
+                                          const ScreenLineString& geometry,
+                                          const std::vector<const RenderLayer*>& layers,
+                                          const RenderedQueryOptions& options) const {
+    
+    auto renderedSymbols = placement->getCollisionIndex().queryRenderedSymbols(geometry);
+    std::vector<std::reference_wrapper<const RetainedQueryData>> bucketQueryData;
+    for (auto entry : renderedSymbols) {
+        bucketQueryData.push_back(placement->getQueryData(entry.first));
+    }
+    // Although symbol query is global, symbol results are only sortable within a bucket
+    // For a predictable global sort order, we sort the buckets based on their corresponding tile position
+    std::sort(bucketQueryData.begin(), bucketQueryData.end(), [](const RetainedQueryData& a, const RetainedQueryData& b) {
+        return
+            std::tie(a.tileID.canonical.z, a.tileID.canonical.y, a.tileID.wrap, a.tileID.canonical.x) <
+            std::tie(b.tileID.canonical.z, b.tileID.canonical.y, b.tileID.wrap, b.tileID.canonical.x);
+    });
+    
+    for (auto wrappedQueryData : bucketQueryData) {
+        auto& queryData = wrappedQueryData.get();
+        auto bucketSymbols = queryData.featureIndex->lookupSymbolFeatures(renderedSymbols[queryData.bucketInstanceId],
+                                                                          options,
+                                                                          layers,
+                                                                          queryData.tileID,
+                                                                          queryData.featureSortOrder);
+        
+        for (auto layer : bucketSymbols) {
+            auto& resultFeatures = resultsByLayer[layer.first];
+            std::move(layer.second.begin(), layer.second.end(), std::inserter(resultFeatures, resultFeatures.end()));
+        }
+    }
+}
 
 std::vector<Feature> Renderer::Impl::queryRenderedFeatures(const ScreenLineString& geometry, const RenderedQueryOptions& options, const std::vector<const RenderLayer*>& layers) const {
     std::unordered_set<std::string> sourceIDs;
@@ -675,13 +713,18 @@ std::vector<Feature> Renderer::Impl::queryRenderedFeatures(const ScreenLineStrin
         sourceIDs.emplace(layer->baseImpl->source);
     }
 
+    mat4 projMatrix;
+    transformState.getProjMatrix(projMatrix);
+
     std::unordered_map<std::string, std::vector<Feature>> resultsByLayer;
     for (const auto& sourceID : sourceIDs) {
         if (RenderSource* renderSource = getRenderSource(sourceID)) {
-            auto sourceResults = renderSource->queryRenderedFeatures(geometry, transformState, layers, options, placement->getCollisionIndex());
+            auto sourceResults = renderSource->queryRenderedFeatures(geometry, transformState, layers, options, projMatrix);
             std::move(sourceResults.begin(), sourceResults.end(), std::inserter(resultsByLayer, resultsByLayer.begin()));
         }
     }
+    
+    queryRenderedSymbols(resultsByLayer, geometry, layers, options);
 
     std::vector<Feature> result;
 
@@ -778,15 +821,6 @@ bool Renderer::Impl::hasTransitions(TimePoint timePoint) const {
     }
 
     return false;
-}
-
-void Renderer::Impl::commitFeatureIndexes() {
-    for (auto& source : renderSources) {
-        for (auto& renderTile : source.second->getRenderTiles()) {
-            Tile& tile = renderTile.get().tile;
-            tile.commitFeatureIndex();
-        }
-    }
 }
 
 void Renderer::Impl::updateFadingTiles() {

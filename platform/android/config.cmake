@@ -10,7 +10,7 @@ set(CMAKE_C_ARCHIVE_APPEND "<CMAKE_AR> ruT <TARGET> <LINK_FLAGS> <OBJECTS>")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffunction-sections -fdata-sections")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffunction-sections -fdata-sections")
 
-if ((ANDROID_ABI STREQUAL "armeabi") OR (ANDROID_ABI STREQUAL "armeabi-v7a") OR (ANDROID_ABI STREQUAL "arm64-v8a") OR
+if ((ANDROID_ABI STREQUAL "armeabi-v7a") OR (ANDROID_ABI STREQUAL "arm64-v8a") OR
     (ANDROID_ABI STREQUAL "x86") OR (ANDROID_ABI STREQUAL "x86_64"))
     # Use Identical Code Folding on platforms that support the gold linker.
     set(CMAKE_EXE_LINKER_FLAGS "-fuse-ld=gold -Wl,--icf=safe ${CMAKE_EXE_LINKER_FLAGS}")
@@ -190,16 +190,6 @@ add_library(mbgl-android STATIC
     platform/android/src/style/sources/image_source.cpp
     platform/android/src/style/sources/raster_dem_source.cpp
     platform/android/src/style/sources/raster_dem_source.hpp
-    platform/android/src/style/functions/stop.cpp
-    platform/android/src/style/functions/stop.hpp
-    platform/android/src/style/functions/categorical_stops.cpp
-    platform/android/src/style/functions/categorical_stops.hpp
-    platform/android/src/style/functions/exponential_stops.cpp
-    platform/android/src/style/functions/exponential_stops.hpp
-    platform/android/src/style/functions/identity_stops.cpp
-    platform/android/src/style/functions/identity_stops.hpp
-    platform/android/src/style/functions/interval_stops.cpp
-    platform/android/src/style/functions/interval_stops.hpp
     platform/android/src/style/position.cpp
     platform/android/src/style/position.hpp
     platform/android/src/style/light.cpp
@@ -222,6 +212,8 @@ add_library(mbgl-android STATIC
     platform/android/src/map_renderer_runnable.hpp
 
     # Java core classes
+    platform/android/src/java/lang.cpp
+    platform/android/src/java/lang.hpp
     platform/android/src/java/util.cpp
     platform/android/src/java/util.hpp
 
@@ -238,6 +230,8 @@ add_library(mbgl-android STATIC
     platform/android/src/geojson/feature_collection.hpp
     platform/android/src/geojson/geometry.cpp
     platform/android/src/geojson/geometry.hpp
+    platform/android/src/geojson/geometry_collection.cpp
+    platform/android/src/geojson/geometry_collection.hpp
     platform/android/src/geojson/line_string.cpp
     platform/android/src/geojson/line_string.hpp
     platform/android/src/geojson/multi_line_string.cpp

@@ -13,6 +13,7 @@ const lightProperties = Object.keys(spec[`light`]).reduce((memo, name) => {
   var property = spec[`light`][name];
   property.name = name;
   property['light-property'] = true;
+  property.doc = property.doc.replace(/°/g,'&#xB0;');
   memo.push(property);
   return memo;
 }, []);
@@ -28,9 +29,6 @@ var layers = Object.keys(spec.layer.type.values).map((type) => {
   }, []);
 
   const paintProperties = Object.keys(spec[`paint_${type}`]).reduce((memo, name) => {
-    // disabled for now, see https://github.com/mapbox/mapbox-gl-native/issues/11172
-    if (name === 'heatmap-color') return memo;
-
     spec[`paint_${type}`][name].name = name;
     memo.push(spec[`paint_${type}`][name]);
     return memo;
@@ -151,6 +149,24 @@ global.propertyTypeAnnotation = function propertyTypeAnnotation(property) {
   }
 };
 
+global.defaultExpressionJava = function(property) {
+    switch (property.type) {
+      case 'boolean':
+        return 'boolean';
+      case 'number':
+        return 'number';
+      case 'string':
+        return "string";
+      case 'enum':
+        return "string";
+      case 'color':
+        return 'toColor';
+      case 'array':
+        return "array";
+      default: return "string";
+      }
+}
+
 global.defaultValueJava = function(property) {
     if(property.name.endsWith("-pattern")) {
         return '"pedestrian-polygon"';
@@ -251,19 +267,17 @@ global.propertyValueDoc = function (property, value) {
     return doc;
 };
 
-global.isDataDriven = function (property) {
-  return property['property-function'] === true;
-};
-
 global.isLightProperty = function (property) {
   return property['light-property'] === true;
 };
 
 global.propertyValueType = function (property) {
-  if (isDataDriven(property)) {
-    return `DataDrivenPropertyValue<${evaluatedType(property)}>`;
-  } else {
-    return `PropertyValue<${evaluatedType(property)}>`;
+  switch (property['property-type']) {
+    case 'data-driven':
+    case 'cross-faded-data-driven':
+      return `DataDrivenPropertyValue<${evaluatedType(property)}>`;
+    default:
+      return `PropertyValue<${evaluatedType(property)}>`;
   }
 };
 
@@ -302,11 +316,11 @@ global.evaluatedType = function (property) {
 };
 
 global.supportsZoomFunction = function (property) {
-  return property['zoom-function'] === true;
+  return property.expression && property.expression.parameters.indexOf('zoom') > -1;
 };
 
 global.supportsPropertyFunction = function (property) {
-  return property['property-function'] === true;
+  return property['property-type'] === 'data-driven' || property['property-type'] === 'cross-faded-data-driven';
 };
 
 // Template processing //

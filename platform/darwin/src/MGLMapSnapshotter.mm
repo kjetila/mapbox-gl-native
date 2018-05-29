@@ -89,7 +89,7 @@ const CGFloat MGLSnapshotterMinimumPixelSize = 64;
     std::shared_ptr<mbgl::ThreadPool> _mbglThreadPool;
     std::unique_ptr<mbgl::MapSnapshotter> _mbglMapSnapshotter;
     std::unique_ptr<mbgl::Actor<mbgl::MapSnapshotter::Callback>> _snapshotCallback;
-    NS_ARRAY_OF(MGLAttributionInfo *) *_attributionInfo;
+    NSArray<MGLAttributionInfo *> *_attributionInfo;
     
 }
 
@@ -122,8 +122,7 @@ const CGFloat MGLSnapshotterMinimumPixelSize = 64;
     _snapshotCallback = std::make_unique<mbgl::Actor<mbgl::MapSnapshotter::Callback>>(*mbgl::Scheduler::GetCurrent(), [=](std::exception_ptr mbglError, mbgl::PremultipliedImage image, mbgl::MapSnapshotter::Attributions attributions, mbgl::MapSnapshotter::PointForFn pointForFn) {
         __typeof__(self) strongSelf = weakSelf;
         strongSelf.loading = false;
-        
-        
+
         if (mbglError) {
             NSString *description = @(mbgl::util::toString(mbglError).c_str());
             NSDictionary *userInfo = @{NSLocalizedDescriptionKey: description};
@@ -145,9 +144,13 @@ const CGFloat MGLSnapshotterMinimumPixelSize = 64;
         }
         _snapshotCallback = NULL;
     });
-    dispatch_async(queue, ^{
-        _mbglMapSnapshotter->snapshot(_snapshotCallback->self());
 
+    dispatch_async(queue, ^{
+        __typeof__(self) strongSelf = weakSelf;
+        if (!strongSelf) {
+            return;
+        }
+        strongSelf->_mbglMapSnapshotter->snapshot(strongSelf->_snapshotCallback->self());
     });
 }
 
@@ -425,6 +428,7 @@ const CGFloat MGLSnapshotterMinimumPixelSize = 64;
     _mbglThreadPool = mbgl::sharedThreadPool();
     
     std::string styleURL = std::string([options.styleURL.absoluteString UTF8String]);
+    std::pair<bool, std::string> style = std::make_pair(false, styleURL);
     
     // Size; taking into account the minimum texture size for OpenGL ES
     // For non retina screens the ratio is 1:1 MGLSnapshotterMinimumPixelSize
@@ -451,7 +455,7 @@ const CGFloat MGLSnapshotterMinimumPixelSize = 64;
     }
     
     // Create the snapshotter
-    _mbglMapSnapshotter = std::make_unique<mbgl::MapSnapshotter>(*mbglFileSource, *_mbglThreadPool, styleURL, size, pixelRatio, cameraOptions, coordinateBounds);
+    _mbglMapSnapshotter = std::make_unique<mbgl::MapSnapshotter>(*mbglFileSource, *_mbglThreadPool, style, size, pixelRatio, cameraOptions, coordinateBounds);
 }
 
 @end

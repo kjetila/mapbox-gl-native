@@ -8,7 +8,7 @@ import android.support.annotation.WorkerThread;
 import com.mapbox.geojson.Feature;
 import com.mapbox.geojson.FeatureCollection;
 import com.mapbox.mapboxsdk.geometry.LatLngBounds;
-import com.mapbox.mapboxsdk.style.layers.Filter;
+import com.mapbox.mapboxsdk.style.expressions.Expression;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
@@ -49,6 +49,7 @@ public class CustomGeometrySource extends Source {
    * @param options CustomGeometrySourceOptions.
    */
   public CustomGeometrySource(String id, GeometryTileProvider provider, CustomGeometrySourceOptions options) {
+    super();
     this.provider = provider;
     executor = Executors.newFixedThreadPool(4);
     initialize(id, options);
@@ -62,6 +63,7 @@ public class CustomGeometrySource extends Source {
    * @param bounds The region in which features should be invalidated at all zoom levels
    */
   public void invalidateRegion(LatLngBounds bounds) {
+    checkThread();
     nativeInvalidateBounds(bounds);
   }
 
@@ -74,6 +76,7 @@ public class CustomGeometrySource extends Source {
    * @param y Tile Y coordinate.
    */
   public void invalidateTile(int zoomLevel, int x, int y) {
+    checkThread();
     nativeInvalidateTile(zoomLevel, x, y);
   }
 
@@ -88,17 +91,19 @@ public class CustomGeometrySource extends Source {
    * @param data Feature collection for the tile.
    */
   public void setTileData(int zoomLevel, int x, int y, FeatureCollection data) {
+    checkThread();
     nativeSetTileData(zoomLevel, x, y, data);
   }
 
   /**
    * Queries the source for features.
    *
-   * @param filter an optional filter statement to filter the returned Features
+   * @param filter an optional filter expression to filter the returned Features
    * @return the features
    */
   @NonNull
-  public List<Feature> querySourceFeatures(@Nullable Filter.Statement filter) {
+  public List<Feature> querySourceFeatures(@Nullable Expression filter) {
+    checkThread();
     Feature[] features = querySourceFeatures(filter != null ? filter.toArray() : null);
     return features != null ? Arrays.asList(features) : new ArrayList<Feature>();
   }

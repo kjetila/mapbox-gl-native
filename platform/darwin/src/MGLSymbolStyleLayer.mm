@@ -2,7 +2,7 @@
 // Edit platform/darwin/scripts/generate-style-code.js, then run `make darwin-style-code`.
 
 #import "MGLSource.h"
-#import "NSPredicate+MGLAdditions.h"
+#import "NSPredicate+MGLPrivateAdditions.h"
 #import "NSDate+MGLAdditions.h"
 #import "MGLStyleLayer_Private.h"
 #import "MGLStyleValue_Private.h"
@@ -142,7 +142,7 @@ namespace mbgl {
 {
     MGLAssertStyleLayerIsValid();
 
-    self.rawLayer->setFilter(predicate ? predicate.mgl_filter : mbgl::style::NullFilter());
+    self.rawLayer->setFilter(predicate ? predicate.mgl_filter : mbgl::style::Filter());
 }
 
 - (NSPredicate *)predicate
@@ -233,7 +233,8 @@ namespace mbgl {
     if (propertyValue.isUndefined()) {
         propertyValue = self.rawLayer->getDefaultIconImage();
     }
-    return MGLStyleValueTransformer<std::string, NSString *>().toExpression(propertyValue);
+    NSExpression *expression = MGLStyleValueTransformer<std::string, NSString *>().toExpression(propertyValue);
+    return expression.mgl_expressionByReplacingTokensWithKeyPaths;
 }
 
 - (void)setIconImage:(NSExpression *)iconImage {
@@ -578,7 +579,8 @@ namespace mbgl {
     if (propertyValue.isUndefined()) {
         propertyValue = self.rawLayer->getDefaultTextField();
     }
-    return MGLStyleValueTransformer<std::string, NSString *>().toExpression(propertyValue);
+    NSExpression *expression = MGLStyleValueTransformer<std::string, NSString *>().toExpression(propertyValue);
+    return expression.mgl_expressionByReplacingTokensWithKeyPaths;
 }
 
 - (void)setTextField:(NSExpression *)textField {

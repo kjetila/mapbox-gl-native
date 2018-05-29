@@ -4,10 +4,13 @@ package com.mapbox.mapboxsdk.style.layers;
 
 import android.support.annotation.ColorInt;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.annotation.UiThread;
 
 import static com.mapbox.mapboxsdk.utils.ColorUtils.rgbaToColor;
 
+import com.google.gson.JsonArray;
+import com.mapbox.mapboxsdk.style.expressions.Expression;
 import com.mapbox.mapboxsdk.style.layers.TransitionOptions;
 
 /**
@@ -34,6 +37,7 @@ public class FillExtrusionLayer extends Layer {
    * @param sourceId the id of the source
    */
   public FillExtrusionLayer(String layerId, String sourceId) {
+    super();
     initialize(layerId, sourceId);
   }
 
@@ -45,6 +49,7 @@ public class FillExtrusionLayer extends Layer {
    * @param sourceLayer the source layer to set
    */
   public void setSourceLayer(String sourceLayer) {
+    checkThread();
     nativeSetSourceLayer(sourceLayer);
   }
 
@@ -65,27 +70,45 @@ public class FillExtrusionLayer extends Layer {
    * @return sourceLayer the source layer to get
    */
   public String getSourceLayer() {
+    checkThread();
     return nativeGetSourceLayer();
   }
 
   /**
-   * Set a single filter.
+   * Set a single expression filter.
    *
-   * @param filter the filter to set
+   * @param filter the expression filter to set
    */
-  public void setFilter(Filter.Statement filter) {
+  public void setFilter(Expression filter) {
+    checkThread();
     nativeSetFilter(filter.toArray());
   }
 
   /**
-   * Set a single filter.
+   * Set a single expression filter.
    *
-   * @param filter the filter to set
+   * @param filter the expression filter to set
    * @return This
    */
-  public FillExtrusionLayer withFilter(Filter.Statement filter) {
+  public FillExtrusionLayer withFilter(Expression filter) {
     setFilter(filter);
     return this;
+  }
+
+  /**
+   * Get a single expression filter.
+   *
+   * @return the expression filter to get
+   */
+  @Nullable
+  public Expression getFilter() {
+    checkThread();
+    Expression expression = null;
+    JsonArray array = (JsonArray) nativeGetFilter();
+    if (array != null) {
+      expression = Expression.Converter.convert(array);
+    }
+    return expression;
   }
 
   /**
@@ -108,6 +131,7 @@ public class FillExtrusionLayer extends Layer {
    */
   @SuppressWarnings("unchecked")
   public PropertyValue<Float> getFillExtrusionOpacity() {
+    checkThread();
     return (PropertyValue<Float>) new PropertyValue("fill-extrusion-opacity", nativeGetFillExtrusionOpacity());
   }
 
@@ -117,6 +141,7 @@ public class FillExtrusionLayer extends Layer {
    * @return transition options for Float
    */
   public TransitionOptions getFillExtrusionOpacityTransition() {
+    checkThread();
     return nativeGetFillExtrusionOpacityTransition();
   }
 
@@ -126,6 +151,7 @@ public class FillExtrusionLayer extends Layer {
    * @param options transition options for Float
    */
   public void setFillExtrusionOpacityTransition(TransitionOptions options) {
+    checkThread();
     nativeSetFillExtrusionOpacityTransition(options.getDuration(), options.getDelay());
   }
 
@@ -136,6 +162,7 @@ public class FillExtrusionLayer extends Layer {
    */
   @SuppressWarnings("unchecked")
   public PropertyValue<String> getFillExtrusionColor() {
+    checkThread();
     return (PropertyValue<String>) new PropertyValue("fill-extrusion-color", nativeGetFillExtrusionColor());
   }
 
@@ -147,6 +174,7 @@ public class FillExtrusionLayer extends Layer {
    */
   @ColorInt
   public int getFillExtrusionColorAsInt() {
+    checkThread();
     PropertyValue<String> value = getFillExtrusionColor();
     if (value.isValue()) {
       return rgbaToColor(value.getValue());
@@ -161,6 +189,7 @@ public class FillExtrusionLayer extends Layer {
    * @return transition options for String
    */
   public TransitionOptions getFillExtrusionColorTransition() {
+    checkThread();
     return nativeGetFillExtrusionColorTransition();
   }
 
@@ -170,6 +199,7 @@ public class FillExtrusionLayer extends Layer {
    * @param options transition options for String
    */
   public void setFillExtrusionColorTransition(TransitionOptions options) {
+    checkThread();
     nativeSetFillExtrusionColorTransition(options.getDuration(), options.getDelay());
   }
 
@@ -180,6 +210,7 @@ public class FillExtrusionLayer extends Layer {
    */
   @SuppressWarnings("unchecked")
   public PropertyValue<Float[]> getFillExtrusionTranslate() {
+    checkThread();
     return (PropertyValue<Float[]>) new PropertyValue("fill-extrusion-translate", nativeGetFillExtrusionTranslate());
   }
 
@@ -189,6 +220,7 @@ public class FillExtrusionLayer extends Layer {
    * @return transition options for Float[]
    */
   public TransitionOptions getFillExtrusionTranslateTransition() {
+    checkThread();
     return nativeGetFillExtrusionTranslateTransition();
   }
 
@@ -198,6 +230,7 @@ public class FillExtrusionLayer extends Layer {
    * @param options transition options for Float[]
    */
   public void setFillExtrusionTranslateTransition(TransitionOptions options) {
+    checkThread();
     nativeSetFillExtrusionTranslateTransition(options.getDuration(), options.getDelay());
   }
 
@@ -208,6 +241,7 @@ public class FillExtrusionLayer extends Layer {
    */
   @SuppressWarnings("unchecked")
   public PropertyValue<String> getFillExtrusionTranslateAnchor() {
+    checkThread();
     return (PropertyValue<String>) new PropertyValue("fill-extrusion-translate-anchor", nativeGetFillExtrusionTranslateAnchor());
   }
 
@@ -218,6 +252,7 @@ public class FillExtrusionLayer extends Layer {
    */
   @SuppressWarnings("unchecked")
   public PropertyValue<String> getFillExtrusionPattern() {
+    checkThread();
     return (PropertyValue<String>) new PropertyValue("fill-extrusion-pattern", nativeGetFillExtrusionPattern());
   }
 
@@ -227,6 +262,7 @@ public class FillExtrusionLayer extends Layer {
    * @return transition options for String
    */
   public TransitionOptions getFillExtrusionPatternTransition() {
+    checkThread();
     return nativeGetFillExtrusionPatternTransition();
   }
 
@@ -236,6 +272,7 @@ public class FillExtrusionLayer extends Layer {
    * @param options transition options for String
    */
   public void setFillExtrusionPatternTransition(TransitionOptions options) {
+    checkThread();
     nativeSetFillExtrusionPatternTransition(options.getDuration(), options.getDelay());
   }
 
@@ -246,6 +283,7 @@ public class FillExtrusionLayer extends Layer {
    */
   @SuppressWarnings("unchecked")
   public PropertyValue<Float> getFillExtrusionHeight() {
+    checkThread();
     return (PropertyValue<Float>) new PropertyValue("fill-extrusion-height", nativeGetFillExtrusionHeight());
   }
 
@@ -255,6 +293,7 @@ public class FillExtrusionLayer extends Layer {
    * @return transition options for Float
    */
   public TransitionOptions getFillExtrusionHeightTransition() {
+    checkThread();
     return nativeGetFillExtrusionHeightTransition();
   }
 
@@ -264,6 +303,7 @@ public class FillExtrusionLayer extends Layer {
    * @param options transition options for Float
    */
   public void setFillExtrusionHeightTransition(TransitionOptions options) {
+    checkThread();
     nativeSetFillExtrusionHeightTransition(options.getDuration(), options.getDelay());
   }
 
@@ -274,6 +314,7 @@ public class FillExtrusionLayer extends Layer {
    */
   @SuppressWarnings("unchecked")
   public PropertyValue<Float> getFillExtrusionBase() {
+    checkThread();
     return (PropertyValue<Float>) new PropertyValue("fill-extrusion-base", nativeGetFillExtrusionBase());
   }
 
@@ -283,6 +324,7 @@ public class FillExtrusionLayer extends Layer {
    * @return transition options for Float
    */
   public TransitionOptions getFillExtrusionBaseTransition() {
+    checkThread();
     return nativeGetFillExtrusionBaseTransition();
   }
 
@@ -292,6 +334,7 @@ public class FillExtrusionLayer extends Layer {
    * @param options transition options for Float
    */
   public void setFillExtrusionBaseTransition(TransitionOptions options) {
+    checkThread();
     nativeSetFillExtrusionBaseTransition(options.getDuration(), options.getDelay());
   }
 

@@ -16,7 +16,7 @@
 
 @implementation MGLAttributionInfo
 
-+ (NS_ARRAY_OF(MGLAttributionInfo *) *)attributionInfosFromHTMLString:(nullable NSString *)htmlString fontSize:(CGFloat)fontSize linkColor:(nullable MGLColor *)linkColor {
++ (NSArray<MGLAttributionInfo *> *)attributionInfosFromHTMLString:(nullable NSString *)htmlString fontSize:(CGFloat)fontSize linkColor:(nullable MGLColor *)linkColor {
     if (!htmlString) {
         return @[];
     }
@@ -49,7 +49,12 @@
         CGFloat blue;
         CGFloat alpha;
 #if !TARGET_OS_IPHONE
-        linkColor = [linkColor colorUsingColorSpaceName:NSCalibratedRGBColorSpace];
+        // CSS uses the sRGB color space.
+        if ([NSColor redColor].colorSpaceName == NSCalibratedRGBColorSpace) {
+            linkColor = [linkColor colorUsingColorSpaceName:NSCalibratedRGBColorSpace];
+        } else {
+            linkColor = [linkColor colorUsingColorSpace:[NSColorSpace sRGBColorSpace]];
+        }
 #endif
         [linkColor getRed:&red green:&green blue:&blue alpha:&alpha];
         [css appendFormat:
@@ -107,7 +112,7 @@
     return infos;
 }
 
-+ (NSAttributedString *)attributedStringForAttributionInfos:(NS_ARRAY_OF(MGLAttributionInfo *) *)attributionInfos {
++ (NSAttributedString *)attributedStringForAttributionInfos:(NSArray<MGLAttributionInfo *> *)attributionInfos {
     NSMutableArray *titles = [NSMutableArray arrayWithCapacity:attributionInfos.count];
     for (MGLAttributionInfo *info in attributionInfos) {
         NSMutableAttributedString *title = info.title.mutableCopy;
@@ -254,7 +259,7 @@
     }
 }
 
-- (void)growArrayByAddingAttributionInfosFromArray:(NS_ARRAY_OF(MGLAttributionInfo *) *)infos {
+- (void)growArrayByAddingAttributionInfosFromArray:(NSArray<MGLAttributionInfo *> *)infos {
     for (MGLAttributionInfo *info in infos) {
         [self growArrayByAddingAttributionInfo:info];
     }

@@ -4,25 +4,47 @@
 #include <mbgl/test/stub_geometry_tile_feature.hpp>
 
 #include <mbgl/style/filter.hpp>
-#include <mbgl/style/filter_evaluator.hpp>
 #include <mbgl/style/conversion/json.hpp>
 #include <mbgl/style/conversion/filter.hpp>
 
 using namespace mbgl;
 using namespace mbgl::style;
 
-bool filter(const char * json, const PropertyMap& featureProperties = {{}}, optional<FeatureIdentifier> featureId = {}, FeatureType featureType = FeatureType::Point, GeometryCollection featureGeometry = {}) {
+bool filter(const char * json,
+            const PropertyMap& featureProperties = {{}},
+            optional<FeatureIdentifier> featureId = {},
+            FeatureType featureType = FeatureType::Point,
+            GeometryCollection featureGeometry = {},
+            float zoom = 0.0f) {
     conversion::Error error;
     optional<Filter> filter = conversion::convertJSON<Filter>(json, error);
     EXPECT_TRUE(bool(filter));
     EXPECT_EQ(error.message, "");
     
     StubGeometryTileFeature feature { featureId, featureType, featureGeometry, featureProperties };
-    expression::EvaluationContext context = { &feature };
+    expression::EvaluationContext context = { zoom, &feature };
     
     return (*filter)(context);
 }
 
+void invalidFilter(const char * json) {
+    conversion::Error error;
+    optional<Filter> filter = conversion::convertJSON<Filter>(json, error);
+    EXPECT_FALSE(bool(filter));
+    EXPECT_NE(error.message, "");
+}
+
+TEST(Filter, EqualsNull) {
+    auto f = R"(["==", "foo", null])";
+    ASSERT_TRUE(filter(f, {{ "foo", mapbox::geometry::null_value }}));
+
+    ASSERT_FALSE(filter(f, {{ "foo", int64_t(0) }}));
+    ASSERT_FALSE(filter(f, {{ "foo", int64_t(1) }}));
+    ASSERT_FALSE(filter(f, {{ "foo", std::string("0") }}));
+    ASSERT_FALSE(filter(f, {{ "foo", true }}));
+    ASSERT_FALSE(filter(f, {{ "foo", false }}));
+    ASSERT_FALSE(filter(f, {{ }}));
+}
 TEST(Filter, EqualsString) {
     auto f = R"(["==", "foo", "bar"])";
     ASSERT_TRUE(filter(f, {{ "foo", std::string("bar") }}));
@@ -48,6 +70,12 @@ TEST(Filter, EqualsType) {
     auto f = R"(["==", "$type", "LineString"])";
     ASSERT_FALSE(filter(f, {{}}, {}, FeatureType::Point, {}));
     ASSERT_TRUE(filter(f, {{}}, {}, FeatureType::LineString, {}));
+    ASSERT_FALSE(filter(f, {{}}, {}, FeatureType::Point, {}));
+
+    invalidFilter("[\"==\", \"$type\"]");
+    invalidFilter("[\"==\", \"$type\", null]");
+    invalidFilter("[\"==\", \"$type\", \"foo\", 1]");
+    invalidFilter("[\"==\", \"$type\", \"foo\", \"Point\"]");
 }
 
 TEST(Filter, InType) {
@@ -57,6 +85,14 @@ TEST(Filter, InType) {
     ASSERT_TRUE(filter(f, {{}}, {}, FeatureType::Polygon));
 }
 
+TEST(Filter, InID) {
+    auto f = R"(["in", "$id", "123", "1234", 1234])";
+    ASSERT_FALSE(filter(f));
+    ASSERT_TRUE(filter(f, {{}}, { uint64_t(1234) }));
+    ASSERT_TRUE(filter(f, {{}}, { std::string("1234") }));
+    ASSERT_FALSE(filter(f, {{}}, { std::string("4321") }));
+}
+
 TEST(Filter, Any) {
     ASSERT_FALSE(filter("[\"any\"]"));
     ASSERT_TRUE(filter("[\"any\", [\"==\", \"foo\", 1]]", {{ std::string("foo"), int64_t(1) }}));
@@ -64,11 +100,24 @@ TEST(Filter, Any) {
     ASSERT_TRUE(filter("[\"any\", [\"==\", \"foo\", 0], [\"==\", \"foo\", 1]]", {{ std::string("foo"), int64_t(1) }}));
 }
 
+TEST(Filter, AnyExpression) {
+    ASSERT_FALSE(filter("[\"any\"]"));
+    ASSERT_TRUE(filter("[\"any\", [\"==\", [\"get\", \"foo\"], 1]]", {{ std::string("foo"), int64_t(1) }}));
+    ASSERT_FALSE(filter("[\"any\", [\"==\", [\"get\", \"foo\"], 0]]", {{ std::string("foo"), int64_t(1) }}));
+    ASSERT_TRUE(filter("[\"any\", [\"==\", [\"get\", \"foo\"], 0], [\"==\", [\"get\", \"foo\"], 1]]", {{ std::string("foo"), int64_t(1) }}));
+}
+
 TEST(Filter, All) {
     ASSERT_TRUE(filter("[\"all\"]", {{}}));
     ASSERT_TRUE(filter("[\"all\", [\"==\", \"foo\", 1]]", {{ std::string("foo"), int64_t(1) }}));
     ASSERT_FALSE(filter("[\"all\", [\"==\", \"foo\", 0]]", {{ std::string("foo"), int64_t(1) }}));
     ASSERT_FALSE(filter("[\"all\", [\"==\", \"foo\", 0], [\"==\", \"foo\", 1]]", {{ std::string("foo"), int64_t(1) }}));
+}
+
+TEST(Filter, AllExpression) {
+    ASSERT_TRUE(filter("[\"all\", [\"==\", [\"get\", \"foo\"], 1]]", {{ std::string("foo"), int64_t(1) }}));
+    ASSERT_FALSE(filter("[\"all\", [\"==\", [\"get\", \"foo\"], 0]]", {{ std::string("foo"), int64_t(1) }}));
+    ASSERT_FALSE(filter("[\"all\", [\"==\", [\"get\", \"foo\"], 0], [\"==\", [\"get\", \"foo\"], 1]]", {{ std::string("foo"), int64_t(1) }}));
 }
 
 TEST(Filter, None) {
@@ -83,6 +132,7 @@ TEST(Filter, Has) {
     ASSERT_TRUE(filter("[\"has\", \"foo\"]", {{ std::string("foo"), int64_t(0) }}));
     ASSERT_TRUE(filter("[\"has\", \"foo\"]", {{ std::string("foo"), false }}));
     ASSERT_FALSE(filter("[\"has\", \"foo\"]"));
+    ASSERT_FALSE(filter("[\"has\", \"$id\"]"));
 }
 
 TEST(Filter, NotHas) {
@@ -96,7 +146,11 @@ TEST(Filter, ID) {
     FeatureIdentifier id1 { uint64_t{ 1234 } };
     ASSERT_TRUE(filter("[\"==\", \"$id\", 1234]", {{}}, id1));
     ASSERT_FALSE(filter("[\"==\", \"$id\", \"1234\"]", {{}}, id1));
-    
+
+    FeatureIdentifier id2 { std::string{ "1" } };
+    ASSERT_FALSE(filter("[\"<\", \"$id\", \"0\"]", {{}}, id2));
+    ASSERT_TRUE(filter("[\"<\", \"$id\", \"1234\"]", {{}}, id2));
+
     ASSERT_FALSE(filter("[\"==\", \"$id\", 1234]", {{ "id", uint64_t(1234) }}));
 }
 
@@ -108,4 +162,21 @@ TEST(Filter, Expression) {
 TEST(Filter, PropertyExpression) {
     ASSERT_TRUE(filter("[\"==\", [\"get\", \"two\"], 2]", {{"two", int64_t(2)}}));
     ASSERT_FALSE(filter("[\"==\", [\"get\", \"two\"], 4]", {{"two", int64_t(2)}}));
+}
+
+TEST(Filter, LegacyProperty) {
+    ASSERT_TRUE(filter("[\"<=\", \"two\", 2]", {{"two", int64_t(2)}}));
+    ASSERT_FALSE(filter("[\"==\", \"two\", 4]", {{"two", int64_t(2)}}));
+
+    ASSERT_FALSE(filter("[\"<=\", \"two\", \"2\"]", {{"two", int64_t(2)}}));
+    ASSERT_FALSE(filter("[\"==\", \"bool\", false]", {{"two", true}}));
+
+    ASSERT_TRUE(filter("[\"<=\", \"two\", \"2\"]", {{"two", std::string("2")}}));
+    ASSERT_FALSE(filter("[\"<\", \"two\", \"1\"]", {{"two", std::string("2")}}));
+    ASSERT_FALSE(filter("[\"==\", \"two\", 4]", {{"two", std::string("2")}}));
+}
+
+TEST(Filter, ZoomExpressionNested) {
+    ASSERT_TRUE(filter(R"(["==", ["get", "two"], ["zoom"]])", {{"two", int64_t(2)}}, {}, FeatureType::Point, {}, 2.0f));
+    ASSERT_FALSE(filter(R"(["==", ["get", "two"], ["+", ["zoom"], 1]])", {{"two", int64_t(2)}}, {}, FeatureType::Point, {}, 2.0f));
 }

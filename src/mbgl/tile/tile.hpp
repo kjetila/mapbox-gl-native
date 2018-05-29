@@ -58,11 +58,13 @@ public:
             const TransformState&,
             const std::vector<const RenderLayer*>&,
             const RenderedQueryOptions& options,
-            const CollisionIndex&);
+            const mat4& projMatrix);
 
     virtual void querySourceFeatures(
             std::vector<Feature>& result,
             const SourceQueryOptions&);
+
+    virtual float getQueryPadding(const std::vector<const RenderLayer*>&);
 
     void setTriedCache();
 
@@ -109,14 +111,9 @@ public:
     // and will have time to finish by the second placement.
     virtual void performedFadePlacement() {}
     
-    // FeatureIndexes are loaded asynchronously, but must be used with a CollisionIndex
-    // generated from the same data. Calling commitFeatureIndex signals the current
-    // CollisionIndex is up-to-date and allows us to start using the last loaded FeatureIndex
-    virtual void commitFeatureIndex() {}
-    
     void dumpDebugLogs() const;
 
-    const OverscaledTileID id;
+    OverscaledTileID id;
     optional<Timestamp> modified;
     optional<Timestamp> expires;
 

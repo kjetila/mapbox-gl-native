@@ -24,11 +24,15 @@ TEST(Expression, IsExpression) {
                 spec["expression_name"].IsObject() &&
                 spec["expression_name"].HasMember("values") &&
                 spec["expression_name"]["values"].IsObject());
-    
+
     const auto& allExpressions = spec["expression_name"]["values"];
-    
+
     for(auto& entry : allExpressions.GetObject()) {
         const std::string name { entry.name.GetString(), entry.name.GetStringLength() };
+        if (name == "collator" || name == "line-progress" || name == "resolved-locale" || name == "feature-state") {
+            // Not yet implemented
+            continue;
+        }
         JSDocument document;
         document.Parse<0>(R"([")" + name + R"("])");
 
@@ -49,7 +53,7 @@ TEST_P(ExpressionEqualityTest, ExpressionEquality) {
         assert(!document.HasParseError());
         const JSValue* expression = &document;
         expression::ParsingContext ctx;
-        expression::ParseResult parsed = ctx.parse(conversion::Convertible(expression));
+        expression::ParseResult parsed = ctx.parseExpression(conversion::Convertible(expression));
         if (!parsed) {
             error_ = ctx.getErrors().size() > 0 ? ctx.getErrors()[0].message : "failed to parse";
         };
