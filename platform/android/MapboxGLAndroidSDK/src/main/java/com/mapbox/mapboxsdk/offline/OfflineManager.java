@@ -66,7 +66,14 @@ public class OfflineManager {
      */
     void onError(String error);
   }
-
+  
+  public interface PutOfflineCallback {
+ 
+     void onPut();
+ 
+     void onError(String error);
+ 
+   }
   /**
    * This callback receives an asynchronous response containing the newly created
    * OfflineRegion in the database or an error message otherwise.
@@ -260,5 +267,9 @@ public class OfflineManager {
 
   private native void createOfflineRegion(FileSource fileSource, OfflineRegionDefinition definition,
                                           byte[] metadata, CreateOfflineRegionCallback callback);
+  public native void putResourceWithUrl(String url, byte[] data, boolean compressed, long regionId, PutOfflineCallback callback);
+ 
+  public native void putTileWithUrlTemplate(String url, float pixelRatio,
+                                                int x, int y, int z, byte[] data, boolean compressed, long regionId, PutOfflineCallback callback);
 
 }

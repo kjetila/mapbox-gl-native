@@ -122,6 +122,13 @@ public:
      * by the Mapbox Terms of Service.
      */
     void setOfflineMapboxTileCountLimit(uint64_t) const;
+    
+    void clear() const;
+
+    void startPutRegionResource(OfflineRegion& region, const Resource& resource, const Response& response, const bool compressed, std::function<void (std::exception_ptr)> callback);
+    void startPutRegionResource(const int64_t regionID, const Resource& resource, const Response& response, const bool compressed, std::function<void (std::exception_ptr)> callback);
+
+
 
     /*
      * Pause file request activity.

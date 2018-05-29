@@ -81,7 +81,9 @@ public:
     void updateOfflineRegionMetadata(jni::JNIEnv&, jni::Array<jni::jbyte>, jni::Object<OfflineRegionUpdateMetadataCallback>);
 
     static jni::Object<OfflineRegion> New(jni::JNIEnv&, jni::Object<FileSource>, mbgl::OfflineRegion);
-
+    
+    int64_t getID() const;
+    
     static jni::Array<jni::jbyte> metadata(jni::JNIEnv&, mbgl::OfflineRegionMetadata);
 
     static mbgl::OfflineRegionMetadata metadata(jni::JNIEnv&, jni::Array<jni::jbyte>);

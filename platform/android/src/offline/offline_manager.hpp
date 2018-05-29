@@ -32,6 +32,19 @@ public:
         static void registerNative(jni::JNIEnv&);
     };
 
+    class PutOfflineCallback {
+    public:
+        static constexpr auto Name() { return "com/mapbox/mapboxsdk/offline/OfflineManager$PutOfflineCallback";}
+
+        static void onError(jni::JNIEnv&, jni::Object<OfflineManager::PutOfflineCallback>, std::exception_ptr);
+
+        static void onPut(jni::JNIEnv&, jni::Object<OfflineManager::PutOfflineCallback>);
+
+        static jni::Class<OfflineManager::PutOfflineCallback> javaClass;
+
+        static void registerNative(jni::JNIEnv&);
+    };
+
     class CreateOfflineRegionCallback {
     public:
         static constexpr auto Name() { return "com/mapbox/mapboxsdk/offline/OfflineManager$CreateOfflineRegionCallback"; }
@@ -66,7 +79,18 @@ public:
                              jni::Object<OfflineRegionDefinition> definition,
                              jni::Array<jni::jbyte> metadata,
                              jni::Object<OfflineManager::CreateOfflineRegionCallback> callback);
-
+    void putResourceWithUrl(jni::JNIEnv&, jni::String url_, jni::Array<jni::jbyte> arr, jboolean compressed, jlong regionId, jni::Object<PutOfflineCallback> callback_);
+    
+    void putTileWithUrlTemplate(jni::JNIEnv&,       
+                             jni::String urlTemplate_,
+                             jfloat pixelRatio, 
+                             jint x, 
+                             jint y, 
+                             jint z, 
+                             jni::Array<jni::jbyte> arr,
+                             jboolean compressed,
+                             jlong regionId,
+                             jni::Object<PutOfflineCallback> callback_);
 private:
     mbgl::DefaultFileSource& fileSource;
 };
